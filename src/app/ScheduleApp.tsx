@@ -99,8 +99,8 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
   function ScoreInputs({ matchNumber, compact = false }: { matchNumber: number; compact?: boolean }) {
     const state = scores[matchNumber] ?? { home: "", away: "" };
     const inputStyle: React.CSSProperties = {
-      width: compact ? 40 : 48,
-      height: 40,
+      width: compact ? 40 : 44,
+      height: 38,
       borderRadius: 10,
       textAlign: "center",
       fontWeight: 700,
@@ -141,13 +141,15 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
 
   function ChartView() {
     const colCount = chartDays.length;
+    // Each day column: 164px min so flag+code+v+code+flag fits comfortably
+    const COL_W = 164;
     return (
       <div style={{ overflowX: "auto", paddingBottom: 8 }}>
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: `130px repeat(${colCount}, minmax(136px, 1fr))`,
-            minWidth: 130 + colCount * 136,
+            gridTemplateColumns: `130px repeat(${colCount}, minmax(${COL_W}px, 1fr))`,
+            minWidth: 130 + colCount * COL_W,
             border: "1px solid var(--border-card)",
             borderRadius: 16,
             overflow: "hidden",
@@ -252,13 +254,21 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
                           <span>#{match.matchNumber}</span>
                           <span>{match.timeLabel}</span>
                         </div>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 4, alignItems: "center", fontSize: "0.72rem" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                        {/* Team row: flag · code · v · code · flag — nowrap so they stay on one line */}
+                        <div style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: 4,
+                          fontSize: "0.72rem",
+                          whiteSpace: "nowrap"
+                        }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 4, minWidth: 0 }}>
                             <Flag src={match.homeFlag} alt={match.homeName} />
                             <span style={{ fontWeight: 800, color: "var(--text)" }}>{match.homeCode}</span>
                           </div>
-                          <span style={{ color: "var(--accent)", fontFamily: "var(--font-ui)", fontSize: "0.68rem" }}>v</span>
-                          <div style={{ display: "flex", alignItems: "center", gap: 5, justifyContent: "flex-end" }}>
+                          <span style={{ color: "var(--accent)", fontFamily: "var(--font-ui)", fontSize: "0.68rem", flexShrink: 0, padding: "0 2px" }}>v</span>
+                          <div style={{ display: "flex", alignItems: "center", gap: 4, minWidth: 0, justifyContent: "flex-end" }}>
                             <span style={{ fontWeight: 800, color: "var(--text)" }}>{match.awayCode}</span>
                             <Flag src={match.awayFlag} alt={match.awayName} />
                           </div>
@@ -615,7 +625,7 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
           <div style={headStyle}>
             <h2 style={{ margin: 0, color: "var(--text)", fontSize: "clamp(1.2rem,1.6vw,1.8rem)" }}>Group Stage Chart</h2>
             <p style={{ margin: "6px 0 0", color: "var(--text-secondary)", maxWidth: "80ch", fontSize: "0.88rem" }}>
-              Groups A–L as rows, match days as columns. Score inputs sync to Vercel KV so everyone sees the same scores.
+              Groups A–L as rows, match days as columns. Score inputs sync to Edge Config so everyone sees the same scores.
             </p>
           </div>
           <div style={{ padding: "16px 18px 22px" }}>
