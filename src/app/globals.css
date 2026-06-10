@@ -1,0 +1,80 @@
+:root {
+  --accent: #6b2a2a;
+  --accent-hover: #a85a5a;
+  --bg-body: #8e8680;
+  --bg-card: #eae4e1;
+  --bg-dark: #0b0a0a;
+  --text: #111;
+  --text-secondary: #4a4a4a;
+  --text-meta: #5a5a5a;
+  --text-light: #e0e0e0;
+  --text-light-secondary: #b0b0b0;
+  --border-card: rgba(107, 42, 42, 0.16);
+  --font-body: 'Inter', sans-serif;
+  --font-ui: 'Space Grotesk', sans-serif;
+  --radius: 18px;
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.07);
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100dvh;
+  font-family: var(--font-body);
+  background: linear-gradient(to bottom, #9a928e, #827a76);
+  color: var(--text);
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+button, input {
+  font: inherit;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+@media (max-width: 1100px) {
+  .wc-list-item {
+    grid-template-columns: 1fr !important;
+  }
+
+  .wc-standings-layout {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .wc-app {
+    padding: 14px !important;
+  }
+
+  .wc-topbar {
+    border-radius: 18px !important;
+    padding: 14px !important;
+  }
+
+  .wc-panel {
+    border-radius: 18px !important;
+  }
+
+  .wc-standings-card-row {
+    grid-template-columns: 1fr !important;
+  }
+}
