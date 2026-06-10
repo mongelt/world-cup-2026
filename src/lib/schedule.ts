@@ -6,9 +6,9 @@ import rawIso from "./iso.json";
 const isoMap: Record<string, string> = rawIso as Record<string, string>;
 
 // ── Venues ──────────────────────────────────────────────────────────────────
-type VenueRaw = { id: string; city: string; stadium: string; country_code: string };
+type VenueRaw = { id: string; co: string; city: string; stad: string };
 export const venues: Record<string, VenueRaw> = Object.fromEntries(
-  (venuesData.venues as VenueRaw[]).map((v) => [v.id, v])
+  (venuesData as VenueRaw[]).map((v) => [v.id, v])
 );
 
 // ── Groups ───────────────────────────────────────────────────────────────────
@@ -92,7 +92,7 @@ export const matches: Match[] = (matchesData.matches as MatchRaw[]).map((row) =>
     feed1 = null,
     feed2 = null,
   } = row;
-  const venue = venues[venue_id] ?? { city: "TBD", stadium: "TBD", country_code: "us" };
+  const venue = venues[venue_id] ?? { city: "TBD", stad: "TBD", co: "us" };
   const isGroup = /^[A-L]$/.test(group_or_stage);
   const hCode = team1_code || null;
   const aCode = team2_code || null;
@@ -115,7 +115,7 @@ export const matches: Match[] = (matchesData.matches as MatchRaw[]).map((row) =>
       ? `Group ${group_or_stage}`
       : (stageLabels[group_or_stage] ?? group_or_stage),
     city: venue.city,
-    stadium: venue.stadium,
+    stadium: venue.stad,
     venueId: venue_id,
     channel,
     feedA: feed1 ?? null,
