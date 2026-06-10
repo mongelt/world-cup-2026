@@ -1,12 +1,20 @@
 {
-  "note": "Placeholder extraction scaffold for venues embedded in poster.html via the V array.",
-  "source_file": "poster.html",
-  "source_constants": ["V"],
-  "schema": {
-    "venue_id": "string",
-    "city": "string",
-    "stadium": "string",
-    "country": "string|null"
-  },
-  "venues": []
+  "venues": [
+    {"id": "VAN", "city": "Vancouver", "stadium": "BC Place", "country_code": "ca"},
+    {"id": "TOR", "city": "Toronto", "stadium": "BMO Field", "country_code": "ca"},
+    {"id": "MEX", "city": "Mexico City", "stadium": "Estadio Azteca", "country_code": "mx"},
+    {"id": "MTY", "city": "Monterrey", "stadium": "Estadio BBVA", "country_code": "mx"},
+    {"id": "GDL", "city": "Guadalajara", "stadium": "Estadio Akron", "country_code": "mx"},
+    {"id": "SFO", "city": "San Francisco", "stadium": "Levi's Stadium", "country_code": "us"},
+    {"id": "HOU", "city": "Houston", "stadium": "NRG Stadium", "country_code": "us"},
+    {"id": "PHI", "city": "Philadelphia", "stadium": "Lincoln Financial Field", "country_code": "us"},
+    {"id": "SEA", "city": "Seattle", "stadium": "Lumen Field", "country_code": "us"},
+    {"id": "BOS", "city": "Boston", "stadium": "Gillette Stadium", "country_code": "us"},
+    {"id": "KCM", "city": "Kansas City", "stadium": "Arrowhead Stadium", "country_code": "us"},
+    {"id": "LAX", "city": "Los Angeles", "stadium": "SoFi Stadium", "country_code": "us"},
+    {"id": "DAL", "city": "Dallas", "stadium": "AT&T Stadium", "country_code": "us"},
+    {"id": "ATL", "city": "Atlanta", "stadium": "Mercedes-Benz Stadium", "country_code": "us"},
+    {"id": "MIA", "city": "Miami", "stadium": "Hard Rock Stadium", "country_code": "us"},
+    {"id": "NYC", "city": "New York / NJ", "stadium": "MetLife Stadium", "country_code": "us"}
+  ]
 }
