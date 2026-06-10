@@ -11,6 +11,9 @@ type View = "today" | "chart" | "list" | "standings";
 // Game status based on ET kickoff time vs current ET time
 type GameStatus = "finished" | "live" | "upcoming";
 
+// Minimum width for a match card row — below this the multi-column grid scrolls
+const MATCH_CARD_MIN_WIDTH = 860;
+
 interface Props {
   matches: Match[];
   groups: GroupData;
@@ -135,6 +138,29 @@ function Flag({ src, alt }: { src: string | null; alt: string }) {
   );
 }
 
+// Scroll wrapper used for both Today and List views so match cards
+// scroll horizontally on narrow screens instead of collapsing.
+function HScrollList({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        overflowX: "auto",
+        overflowY: "visible",
+        // smooth momentum scroll on iOS
+        WebkitOverflowScrolling: "touch" as React.CSSProperties["WebkitOverflowScrolling"],
+        // tiny padding so the last card's shadow isn't clipped
+        paddingBottom: 4,
+        // negative margin trick: let scroll area reach panel edges on mobile
+        marginInline: 0
+      }}
+    >
+      <div style={{ minWidth: MATCH_CARD_MIN_WIDTH, display: "grid", gap: 10 }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 export default function ScheduleApp({ matches, groups, chartDays, groupStageMatches }: Props) {
   const [view, setView] = useState<View>("today");
   const [scores, setScores] = useState<ScoreState>({});
@@ -232,6 +258,8 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
           gridTemplateColumns: "96px minmax(220px,1.2fr) minmax(160px,1fr) minmax(140px,.8fr) minmax(120px,.7fr) auto",
           gap: 10,
           alignItems: "center",
+          // hard min-width keeps the 6-col layout intact; parent HScrollList enables the scroll
+          minWidth: MATCH_CARD_MIN_WIDTH,
           background: "rgba(255,255,255,0.74)",
           border: "1px solid var(--border-card)",
           borderRadius: 16,
@@ -351,11 +379,11 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
             )}
           </div>
         ) : (
-          <div style={{ display: "grid", gap: 10 }}>
+          <HScrollList>
             {todayMatches.map((match) => (
               <MatchCard key={match.matchNumber} match={match} />
             ))}
-          </div>
+          </HScrollList>
         )}
       </div>
     );
@@ -538,11 +566,11 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
     });
 
     return (
-      <div style={{ display: "grid", gap: 10 }}>
+      <HScrollList>
         {filtered.map((match) => (
           <MatchCard key={match.matchNumber} match={match} showDate />
         ))}
-      </div>
+      </HScrollList>
     );
   }
 
