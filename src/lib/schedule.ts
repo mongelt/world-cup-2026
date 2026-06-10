@@ -1,21 +1,30 @@
-import matchesData from "./matches.json";
-import groupsData from "./groups.json";
-import venuesData from "./venues.json";
-import rawIso from "./iso.json";
+import matchesRaw from "./matches.json";
+import groupsRaw from "./groups.json";
+import venuesRaw from "./venues.json";
+import isoRaw from "./iso.json";
 
-const isoMap: Record<string, string> = rawIso as Record<string, string>;
+// ── ISO map ─────────────────────────────────────────────────────────────────
+const isoMap: Record<string, string> = isoRaw as Record<string, string>;
+export const flagUrl = (code: string) =>
+  `https://flagcdn.com/w40/${isoMap[code] ?? "xx"}.png`;
 
-// ── Venues ──────────────────────────────────────────────────────────────────
+// ── Venues  (flat array [{id,co,city,stad}]) ─────────────────────────────────
 type VenueRaw = { id: string; co: string; city: string; stad: string };
 export const venues: Record<string, VenueRaw> = Object.fromEntries(
-  (venuesData as VenueRaw[]).map((v) => [v.id, v])
+  (venuesRaw as VenueRaw[]).map((v) => [v.id, v])
 );
 
-// ── Groups ───────────────────────────────────────────────────────────────────
-type GroupTeam = { iso_flag: string; code: string; name: string };
-type GroupsShape = { groups: Record<string, GroupTeam[]>; fixtures: Record<string, unknown[]> };
-const rawGroups = groupsData as unknown as GroupsShape;
-export const groups = rawGroups.groups;
+// ── Groups  (flat obj { A: [[iso,code,name],...] }) ──────────────────────────
+type GroupsJson = Record<string, [string, string, string][]>;
+const groupsJson = groupsRaw as GroupsJson;
+
+export const groups: Record<string, { iso: string; code: string; name: string }[]> =
+  Object.fromEntries(
+    Object.entries(groupsJson).map(([letter, teams]) => [
+      letter,
+      teams.map(([iso, code, name]) => ({ iso, code, name })),
+    ])
+  );
 
 export const teamNames: Record<string, string> = Object.fromEntries(
   Object.values(groups).flatMap((teams) => teams.map(({ code, name }) => [code, name]))
@@ -62,45 +71,21 @@ export interface Match {
   feedB: string | null;
 }
 
-export const flagUrl = (code: string) =>
-  `https://flagcdn.com/w40/${isoMap[code] ?? "xx"}.png`;
+// matches.json: flat array of tuples
+// [matchNum, date, time, team1|null, team2|null, group_or_stage, venueId, channel, feed1?, feed2?]
+type MatchTuple = [number, string, string, string | null, string | null, string, string, string, string?, string?];
 
-// ── Matches ───────────────────────────────────────────────────────────────────
-type MatchRaw = {
-  match_number: number;
-  date: string;
-  time_et: string;
-  team1_code: string | null;
-  team2_code: string | null;
-  group_or_stage: string;
-  venue_id: string;
-  channel: string;
-  feed1?: string | null;
-  feed2?: string | null;
-};
-
-export const matches: Match[] = (matchesData.matches as MatchRaw[]).map((row) => {
-  const {
-    match_number,
-    date,
-    time_et,
-    team1_code,
-    team2_code,
-    group_or_stage,
-    venue_id,
-    channel,
-    feed1 = null,
-    feed2 = null,
-  } = row;
-  const venue = venues[venue_id] ?? { city: "TBD", stad: "TBD", co: "us" };
-  const isGroup = /^[A-L]$/.test(group_or_stage);
-  const hCode = team1_code || null;
-  const aCode = team2_code || null;
+export const matches: Match[] = (matchesRaw as MatchTuple[]).map((row) => {
+  const [matchNumber, date, timeRaw, team1, team2, stage, venueId, channel, feed1, feed2] = row;
+  const venue = venues[venueId] ?? { city: "TBD", stad: "TBD", co: "us" };
+  const isGroup = /^[A-L]$/.test(stage);
+  const hCode = team1 ?? null;
+  const aCode = team2 ?? null;
   return {
-    matchNumber: match_number,
+    matchNumber,
     date,
-    timeRaw: time_et,
-    timeLabel: parseTime(time_et),
+    timeRaw,
+    timeLabel: parseTime(timeRaw),
     homeCode: hCode,
     awayCode: aCode,
     homeDisplay: hCode ?? feed1 ?? "TBD",
@@ -109,14 +94,12 @@ export const matches: Match[] = (matchesData.matches as MatchRaw[]).map((row) =>
     awayName: aCode ? (teamNames[aCode] ?? aCode) : (feed2 ?? "TBD"),
     homeFlag: hCode ? flagUrl(hCode) : null,
     awayFlag: aCode ? flagUrl(aCode) : null,
-    group: isGroup ? group_or_stage : null,
+    group: isGroup ? stage : null,
     isGroupStage: isGroup,
-    stageLabel: isGroup
-      ? `Group ${group_or_stage}`
-      : (stageLabels[group_or_stage] ?? group_or_stage),
+    stageLabel: isGroup ? `Group ${stage}` : (stageLabels[stage] ?? stage),
     city: venue.city,
     stadium: venue.stad,
-    venueId: venue_id,
+    venueId,
     channel,
     feedA: feed1 ?? null,
     feedB: feed2 ?? null,
