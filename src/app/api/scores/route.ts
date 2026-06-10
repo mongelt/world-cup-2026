@@ -1,11 +1,19 @@
-import { kv } from "@vercel/kv";
+import { get } from "@vercel/edge-config";
 import { NextResponse } from "next/server";
 
-const KEY = "wc2026:scores";
+const EC_KEY = "wc2026_scores";
+
+// Extract Edge Config ID from the EDGE_CONFIG connection string
+// Format: https://edge-config.vercel.com/ecfg_xxxx?token=...
+function getEdgeConfigId(): string {
+  const raw = process.env.EDGE_CONFIG ?? "";
+  const match = raw.match(/edge-config\.vercel\.com\/(ecfg_[^?]+)/);
+  return match?.[1] ?? "";
+}
 
 export async function GET() {
   try {
-    const scores = await kv.get<Record<string, { home: string; away: string }>>(KEY);
+    const scores = await get<Record<string, { home: string; away: string }>>(EC_KEY);
     return NextResponse.json(scores ?? {});
   } catch {
     return NextResponse.json({});
@@ -19,12 +27,39 @@ export async function POST(req: Request) {
       side: "home" | "away";
       value: string;
     };
-    const current = (await kv.get<Record<string, { home: string; away: string }>>(KEY)) ?? {};
+
+    // Read current scores
+    const current: Record<string, { home: string; away: string }> =
+      (await get<Record<string, { home: string; away: string }>>(EC_KEY)) ?? {};
+
     if (!current[matchNumber]) current[matchNumber] = { home: "", away: "" };
     current[matchNumber][side] = String(value).replace(/[^0-9]/g, "").slice(0, 2);
-    await kv.set(KEY, current);
+
+    // Write back via Vercel REST API
+    const ecId = getEdgeConfigId();
+    const res = await fetch(
+      `https://api.vercel.com/v1/edge-config/${ecId}/items`,
+      {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${process.env.WC_VERCEL_API_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          items: [{ operation: "upsert", key: EC_KEY, value: current }],
+        }),
+      }
+    );
+
+    if (!res.ok) {
+      const err = await res.text();
+      console.error("Edge Config write failed:", err);
+      return NextResponse.json({ ok: false }, { status: 500 });
+    }
+
     return NextResponse.json({ ok: true });
-  } catch {
+  } catch (e) {
+    console.error("POST /api/scores error:", e);
     return NextResponse.json({ ok: false }, { status: 500 });
   }
 }
