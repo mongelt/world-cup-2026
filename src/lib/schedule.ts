@@ -16,7 +16,7 @@ export const venues: Record<string, VenueRaw> = Object.fromEntries(
 
 // ── Groups  (flat obj { A: [[iso,code,name],...] }) ──────────────────────────
 type GroupsJson = Record<string, [string, string, string][]>;
-const groupsJson = groupsRaw as GroupsJson;
+const groupsJson = groupsRaw as unknown as GroupsJson;
 
 export const groups: Record<string, { iso: string; code: string; name: string }[]> =
   Object.fromEntries(
@@ -75,7 +75,7 @@ export interface Match {
 // [matchNum, date, time, team1|null, team2|null, group_or_stage, venueId, channel, feed1?, feed2?]
 type MatchTuple = [number, string, string, string | null, string | null, string, string, string, string?, string?];
 
-export const matches: Match[] = (matchesRaw as MatchTuple[]).map((row) => {
+export const matches: Match[] = (matchesRaw as unknown as MatchTuple[]).map((row) => {
   const [matchNumber, date, timeRaw, team1, team2, stage, venueId, channel, feed1, feed2] = row;
   const venue = venues[venueId] ?? { city: "TBD", stad: "TBD", co: "us" };
   const isGroup = /^[A-L]$/.test(stage);
