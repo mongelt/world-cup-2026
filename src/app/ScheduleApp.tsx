@@ -6,7 +6,10 @@ import type { Match } from "@/lib/schedule";
 type ScoreState = Record<number, { home: string; away: string }>;
 type GroupTeam = { iso: string; code: string; name: string };
 type GroupData = Record<string, GroupTeam[]>;
-type View = "chart" | "list" | "standings";
+type View = "today" | "chart" | "list" | "standings";
+
+// Game status based on ET kickoff time vs current ET time
+type GameStatus = "finished" | "live" | "upcoming";
 
 interface Props {
   matches: Match[];
@@ -42,6 +45,76 @@ function longDate(key: string) {
   });
 }
 
+// Returns today's date key "M/D" in ET
+function todayKeyET(): string {
+  const now = new Date();
+  const et = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+  return `${et.getMonth() + 1}/${et.getDate()}`;
+}
+
+// Parse timeRaw like "3p", "10p", "12:30p", "11a" into ET minutes since midnight
+function kickoffMinutesET(timeRaw: string): number | null {
+  const m = timeRaw.match(/^(\d{1,2})(?::(\d{2}))?([ap])$/);
+  if (!m) return null;
+  let h = parseInt(m[1], 10);
+  const min = parseInt(m[2] ?? "0", 10);
+  const ampm = m[3];
+  if (ampm === "p" && h !== 12) h += 12;
+  if (ampm === "a" && h === 12) h = 0;
+  return h * 60 + min;
+}
+
+// Current ET time in minutes since midnight
+function nowMinutesET(): number {
+  const now = new Date();
+  const et = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+  return et.getHours() * 60 + et.getMinutes();
+}
+
+function gameStatus(timeRaw: string, matchDate: string): GameStatus {
+  const today = todayKeyET();
+  if (matchDate !== today) return "upcoming";
+  const kickoff = kickoffMinutesET(timeRaw);
+  if (kickoff === null) return "upcoming";
+  const now = nowMinutesET();
+  const elapsed = now - kickoff;
+  if (elapsed >= 120) return "finished";
+  if (elapsed >= 0) return "live";
+  return "upcoming";
+}
+
+// Tint overlay style per status
+function statusTint(status: GameStatus): React.CSSProperties {
+  if (status === "finished") return { background: "rgba(200,196,193,0.55)", opacity: 0.82 };
+  if (status === "live") return { background: "rgba(107,42,42,0.13)", boxShadow: "0 0 0 2px rgba(107,42,42,0.35)" };
+  return {};
+}
+
+function StatusBadge({ status }: { status: GameStatus }) {
+  if (status === "upcoming") return null;
+  const isLive = status === "live";
+  return (
+    <span style={{
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 4,
+      padding: "2px 8px",
+      borderRadius: 999,
+      fontSize: "0.65rem",
+      fontFamily: "var(--font-ui)",
+      fontWeight: 700,
+      textTransform: "uppercase",
+      letterSpacing: "0.06em",
+      background: isLive ? "var(--accent)" : "rgba(120,116,113,0.18)",
+      color: isLive ? "#fff" : "var(--text-meta)",
+      border: isLive ? "none" : "1px solid rgba(120,116,113,0.3)"
+    }}>
+      {isLive && <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#ff6b6b", display: "inline-block" }} />}
+      {isLive ? "Live" : "FT"}
+    </span>
+  );
+}
+
 function Flag({ src, alt }: { src: string | null; alt: string }) {
   if (!src) return null;
   return (
@@ -63,11 +136,21 @@ function Flag({ src, alt }: { src: string | null; alt: string }) {
 }
 
 export default function ScheduleApp({ matches, groups, chartDays, groupStageMatches }: Props) {
-  const [view, setView] = useState<View>("chart");
+  const [view, setView] = useState<View>("today");
   const [scores, setScores] = useState<ScoreState>({});
   const [search, setSearch] = useState("");
   const [activeGroup, setActiveGroup] = useState("A");
+  const [nowMin, setNowMin] = useState(nowMinutesET);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Refresh current time every minute so live/finished status updates
+  useEffect(() => {
+    const id = setInterval(() => setNowMin(nowMinutesET()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Suppress unused warning — nowMin triggers re-render for status recalc
+  void nowMin;
 
   useEffect(() => {
     fetch("/api/scores")
@@ -139,9 +222,147 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
     );
   }
 
+  function MatchCard({ match, showDate = false }: { match: Match; showDate?: boolean }) {
+    const status = gameStatus(match.timeRaw, match.date);
+    const tint = statusTint(status);
+    return (
+      <article
+        style={{
+          display: "grid",
+          gridTemplateColumns: "96px minmax(220px,1.2fr) minmax(160px,1fr) minmax(140px,.8fr) minmax(120px,.7fr) auto",
+          gap: 10,
+          alignItems: "center",
+          background: "rgba(255,255,255,0.74)",
+          border: "1px solid var(--border-card)",
+          borderRadius: 16,
+          padding: "12px 14px",
+          transition: "background 0.3s ease, box-shadow 0.3s ease",
+          ...tint
+        }}
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <span style={{ fontFamily: "var(--font-ui)", fontSize: "0.8rem", color: "var(--accent)", fontWeight: 700 }}>
+            Match #{match.matchNumber}
+          </span>
+          <StatusBadge status={status} />
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 700, color: "var(--text)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <Flag src={match.homeFlag} alt={match.homeName} />
+            <span style={{ fontSize: "0.9rem" }}>{match.homeDisplay}</span>
+          </div>
+          <span style={{ color: "var(--text-meta)", fontSize: "0.8rem" }}>v</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: "0.9rem" }}>{match.awayDisplay}</span>
+            <Flag src={match.awayFlag} alt={match.awayName} />
+          </div>
+        </div>
+        <div style={{ color: "var(--text-secondary)", fontSize: "0.85rem" }}>
+          {showDate ? longDate(match.date) : match.timeLabel}
+        </div>
+        <div style={{ color: "var(--text-secondary)", fontSize: "0.85rem" }}>{match.city} · {match.stadium}</div>
+        <div style={{ fontFamily: "var(--font-ui)", fontSize: "0.78rem", color: "var(--text-meta)", textTransform: "uppercase" }}>
+          {match.stageLabel}
+        </div>
+        <ScoreInputs matchNumber={match.matchNumber} compact />
+      </article>
+    );
+  }
+
+  function TodayView() {
+    const today = todayKeyET();
+    const todayMatches = matches
+      .filter((m) => m.date === today)
+      .sort((a, b) => {
+        const ka = kickoffMinutesET(a.timeRaw) ?? 0;
+        const kb = kickoffMinutesET(b.timeRaw) ?? 0;
+        return ka - kb;
+      });
+
+    // Find next game day if no matches today
+    const nextDay = todayMatches.length === 0
+      ? [...new Set(matches.map((m) => m.date))]
+          .sort((a, b) => {
+            const [am, ad] = a.split("/").map(Number);
+            const [bm, bd] = b.split("/").map(Number);
+            return am !== bm ? am - bm : ad - bd;
+          })
+          .find((d) => {
+            const [dm, dd] = d.split("/").map(Number);
+            const [tm, td] = today.split("/").map(Number);
+            return dm > tm || (dm === tm && dd > td);
+          })
+      : null;
+
+    const etNow = new Date().toLocaleTimeString("en-US", {
+      timeZone: "America/New_York",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true
+    });
+
+    return (
+      <div>
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: 8,
+          marginBottom: 16
+        }}>
+          <div>
+            <div style={{ fontSize: "1rem", fontWeight: 700, color: "var(--text)", fontFamily: "var(--font-ui)" }}>
+              {longDate(today)}
+            </div>
+            <div style={{ fontSize: "0.78rem", color: "var(--text-meta)", fontFamily: "var(--font-ui)", marginTop: 2 }}>
+              Current time: {etNow} ET
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 12, fontSize: "0.72rem", fontFamily: "var(--font-ui)", color: "var(--text-meta)" }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <span style={{ width: 12, height: 12, borderRadius: 3, background: "rgba(107,42,42,0.13)", border: "1px solid rgba(107,42,42,0.35)", display: "inline-block" }} />
+              Live
+            </span>
+            <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <span style={{ width: 12, height: 12, borderRadius: 3, background: "rgba(200,196,193,0.55)", border: "1px solid rgba(120,116,113,0.3)", display: "inline-block" }} />
+              Finished
+            </span>
+            <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <span style={{ width: 12, height: 12, borderRadius: 3, background: "rgba(255,255,255,0.74)", border: "1px solid var(--border-card)", display: "inline-block" }} />
+              Upcoming
+            </span>
+          </div>
+        </div>
+
+        {todayMatches.length === 0 ? (
+          <div style={{
+            textAlign: "center",
+            padding: "48px 24px",
+            color: "var(--text-meta)",
+            fontFamily: "var(--font-ui)"
+          }}>
+            <div style={{ fontSize: "2.5rem", marginBottom: 12 }}>⚽</div>
+            <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--text)", marginBottom: 6 }}>No matches today</div>
+            {nextDay && (
+              <div style={{ fontSize: "0.88rem" }}>
+                Next match day: <strong>{longDate(nextDay)}</strong>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div style={{ display: "grid", gap: 10 }}>
+            {todayMatches.map((match) => (
+              <MatchCard key={match.matchNumber} match={match} />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   function ChartView() {
     const colCount = chartDays.length;
-    // Each day column: 164px min so flag+code+v+code+flag fits comfortably
     const COL_W = 164;
     return (
       <div style={{ overflowX: "auto", paddingBottom: 8 }}>
@@ -228,54 +449,63 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
                       minHeight: 90
                     }}
                   >
-                    {dayMatches.map((match) => (
-                      <div
-                        key={match.matchNumber}
-                        style={{
-                          background: "rgba(255,255,255,0.82)",
-                          border: "1px solid var(--border-card)",
-                          borderRadius: 14,
-                          padding: "8px 10px",
-                          marginBottom: 6
-                        }}
-                      >
+                    {dayMatches.map((match) => {
+                      const status = gameStatus(match.timeRaw, match.date);
+                      const tint = statusTint(status);
+                      return (
                         <div
+                          key={match.matchNumber}
                           style={{
-                            display: "flex",
-                            justifyContent: "space-between",
+                            background: "rgba(255,255,255,0.82)",
+                            border: "1px solid var(--border-card)",
+                            borderRadius: 14,
+                            padding: "8px 10px",
                             marginBottom: 6,
-                            fontFamily: "var(--font-ui)",
-                            fontSize: "0.7rem",
-                            textTransform: "uppercase",
-                            letterSpacing: "0.05em",
-                            color: "var(--text-meta)"
+                            transition: "background 0.3s ease, box-shadow 0.3s ease",
+                            ...tint
                           }}
                         >
-                          <span>#{match.matchNumber}</span>
-                          <span>{match.timeLabel}</span>
-                        </div>
-                        {/* Team row: flag · code · v · code · flag — nowrap so they stay on one line */}
-                        <div style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          gap: 4,
-                          fontSize: "0.72rem",
-                          whiteSpace: "nowrap"
-                        }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 4, minWidth: 0 }}>
-                            <Flag src={match.homeFlag} alt={match.homeName} />
-                            <span style={{ fontWeight: 800, color: "var(--text)" }}>{match.homeCode}</span>
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              marginBottom: 6,
+                              fontFamily: "var(--font-ui)",
+                              fontSize: "0.7rem",
+                              textTransform: "uppercase",
+                              letterSpacing: "0.05em",
+                              color: "var(--text-meta)"
+                            }}
+                          >
+                            <span>#{match.matchNumber}</span>
+                            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                              <StatusBadge status={status} />
+                              <span>{match.timeLabel}</span>
+                            </div>
                           </div>
-                          <span style={{ color: "var(--accent)", fontFamily: "var(--font-ui)", fontSize: "0.68rem", flexShrink: 0, padding: "0 2px" }}>v</span>
-                          <div style={{ display: "flex", alignItems: "center", gap: 4, minWidth: 0, justifyContent: "flex-end" }}>
-                            <span style={{ fontWeight: 800, color: "var(--text)" }}>{match.awayCode}</span>
-                            <Flag src={match.awayFlag} alt={match.awayName} />
+                          <div style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: 4,
+                            fontSize: "0.72rem",
+                            whiteSpace: "nowrap"
+                          }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 4, minWidth: 0 }}>
+                              <Flag src={match.homeFlag} alt={match.homeName} />
+                              <span style={{ fontWeight: 800, color: "var(--text)" }}>{match.homeCode}</span>
+                            </div>
+                            <span style={{ color: "var(--accent)", fontFamily: "var(--font-ui)", fontSize: "0.68rem", flexShrink: 0, padding: "0 2px" }}>v</span>
+                            <div style={{ display: "flex", alignItems: "center", gap: 4, minWidth: 0, justifyContent: "flex-end" }}>
+                              <span style={{ fontWeight: 800, color: "var(--text)" }}>{match.awayCode}</span>
+                              <Flag src={match.awayFlag} alt={match.awayName} />
+                            </div>
                           </div>
+                          <ScoreInputs matchNumber={match.matchNumber} />
                         </div>
-                        <ScoreInputs matchNumber={match.matchNumber} />
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 );
               })}
@@ -310,41 +540,7 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
     return (
       <div style={{ display: "grid", gap: 10 }}>
         {filtered.map((match) => (
-          <article
-            key={match.matchNumber}
-            className="wc-list-item"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "96px minmax(240px,1.2fr) minmax(180px,1fr) minmax(150px,.8fr) minmax(130px,.7fr) 110px",
-              gap: 10,
-              alignItems: "center",
-              background: "rgba(255,255,255,0.74)",
-              border: "1px solid var(--border-card)",
-              borderRadius: 16,
-              padding: "12px 14px"
-            }}
-          >
-            <div style={{ fontFamily: "var(--font-ui)", fontSize: "0.8rem", color: "var(--accent)", fontWeight: 700 }}>
-              Match #{match.matchNumber}
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 700, color: "var(--text)" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <Flag src={match.homeFlag} alt={match.homeName} />
-                <span style={{ fontSize: "0.9rem" }}>{match.homeDisplay}</span>
-              </div>
-              <span style={{ color: "var(--text-meta)", fontSize: "0.8rem" }}>v</span>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ fontSize: "0.9rem" }}>{match.awayDisplay}</span>
-                <Flag src={match.awayFlag} alt={match.awayName} />
-              </div>
-            </div>
-            <div style={{ color: "var(--text-secondary)", fontSize: "0.85rem" }}>{longDate(match.date)} · {match.timeLabel}</div>
-            <div style={{ color: "var(--text-secondary)", fontSize: "0.85rem" }}>{match.city} · {match.stadium}</div>
-            <div style={{ fontFamily: "var(--font-ui)", fontSize: "0.78rem", color: "var(--text-meta)", textTransform: "uppercase" }}>
-              {match.stageLabel}
-            </div>
-            <ScoreInputs matchNumber={match.matchNumber} compact />
-          </article>
+          <MatchCard key={match.matchNumber} match={match} showDate />
         ))}
       </div>
     );
@@ -612,6 +808,7 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
             </div>
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {viewBtn("today", "Today")}
             {viewBtn("chart", "Chart")}
             {viewBtn("list", "All Matches")}
             {viewBtn("standings", "Standings")}
@@ -619,6 +816,20 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
           {pill("Scores sync across devices")}
         </div>
       </header>
+
+      {view === "today" && (
+        <section className="wc-panel" style={panelStyle}>
+          <div style={headStyle}>
+            <h2 style={{ margin: 0, color: "var(--text)", fontSize: "clamp(1.2rem,1.6vw,1.8rem)" }}>Today’s Matches</h2>
+            <p style={{ margin: "6px 0 0", color: "var(--text-secondary)", maxWidth: "80ch", fontSize: "0.88rem" }}>
+              All kickoff times in ET. Games tinted when live (≤120 min elapsed) or finished (&gt;120 min).
+            </p>
+          </div>
+          <div style={{ padding: "16px 18px 22px" }}>
+            <TodayView />
+          </div>
+        </section>
+      )}
 
       {view === "chart" && (
         <section className="wc-panel" style={panelStyle}>
