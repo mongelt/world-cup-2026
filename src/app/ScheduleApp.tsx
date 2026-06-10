@@ -4,7 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Match } from "@/lib/schedule";
 
 type ScoreState = Record<number, { home: string; away: string }>;
-type GroupData = Record<string, Array<[string, string, string]>>;
+type GroupTeam = { iso_flag: string; code: string; name: string };
+type GroupData = Record<string, GroupTeam[]>;
 type View = "chart" | "list" | "standings";
 
 interface Props {
@@ -341,8 +342,8 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
 
   function StandingsView() {
     const groupTeams = groups[activeGroup] ?? [];
-    const table = groupTeams.map(([iso, code, name]) => ({
-      iso,
+    const table = groupTeams.map(({ iso_flag, code, name }) => ({
+      iso_flag,
       code,
       name,
       played: 0,
@@ -454,7 +455,7 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
                     <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 700, color: "var(--text)", fontSize: "0.88rem" }}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={`https://flagcdn.com/w40/${team.iso}.png`}
+                        src={`https://flagcdn.com/w40/${team.iso_flag}.png`}
                         alt={team.name}
                         width={22}
                         height={16}
