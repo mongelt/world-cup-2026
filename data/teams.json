@@ -1,0 +1,11 @@
+{
+  "note": "Placeholder extraction scaffold for team mappings embedded in poster.html.",
+  "source_file": "poster.html",
+  "source_constants": ["TR.teams", "ISOC"],
+  "schema": {
+    "team_code": "string",
+    "display_name": "string|null",
+    "iso_country_code": "string|null"
+  },
+  "teams": []
+}

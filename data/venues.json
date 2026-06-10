@@ -1,0 +1,12 @@
+{
+  "note": "Placeholder extraction scaffold for venues embedded in poster.html via the V array.",
+  "source_file": "poster.html",
+  "source_constants": ["V"],
+  "schema": {
+    "venue_id": "string",
+    "city": "string",
+    "stadium": "string",
+    "country": "string|null"
+  },
+  "venues": []
+}

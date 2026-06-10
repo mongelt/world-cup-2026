@@ -1,0 +1,24 @@
+{
+  "note": "Placeholder extraction scaffold for group data embedded in poster.html.",
+  "source_file": "poster.html",
+  "source_constants": ["GROUPS", "GM"],
+  "schema": {
+    "groups": {
+      "A": ["team_code"],
+      "B": ["team_code"],
+      "C": ["team_code"],
+      "D": ["team_code"],
+      "E": ["team_code"],
+      "F": ["team_code"],
+      "G": ["team_code"],
+      "H": ["team_code"],
+      "I": ["team_code"],
+      "J": ["team_code"],
+      "K": ["team_code"],
+      "L": ["team_code"]
+    },
+    "fixtures": []
+  },
+  "groups": {},
+  "fixtures": []
+}

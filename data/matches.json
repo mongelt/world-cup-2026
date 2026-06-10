@@ -1,0 +1,18 @@
+{
+  "note": "Placeholder extraction scaffold. The source HTML embeds data in JavaScript constants including M, GROUPS, GM, V, and TR.teams. This file is the target normalized output location for matches.",
+  "source_file": "poster.html",
+  "source_constants": ["M", "GROUPS", "GM", "V", "TR.teams", "ISOC"],
+  "schema": {
+    "match_number": "number",
+    "date_code": "number",
+    "time_local": "string",
+    "team1_code": "string|null",
+    "team2_code": "string|null",
+    "group_or_stage": "string",
+    "venue_id": "string",
+    "channel": "string|null",
+    "feed1": "string|null",
+    "feed2": "string|null"
+  },
+  "matches": []
+}
