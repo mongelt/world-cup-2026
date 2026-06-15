@@ -1,1 +1,14 @@
-GROUPS_PLACEHOLDER
+{
+  "A": ["MEX","RSA","KOR","CZE"],
+  "B": ["CAN","BIH","QAT","SUI"],
+  "C": ["BRA","MAR","HAI","SCO"],
+  "D": ["USA","PAR","AUS","TUR"],
+  "E": ["GER","CUR","CIV","ECU"],
+  "F": ["NED","JPN","SWE","TUN"],
+  "G": ["BEL","EGY","IRN","NZL"],
+  "H": ["ESP","CPV","KSA","URU"],
+  "I": ["FRA","SEN","IRQ","NOR"],
+  "J": ["ARG","ALG","AUT","JOR"],
+  "K": ["POR","COD","UZB","COL"],
+  "L": ["ENG","CRO","GHA","PAN"]
+}

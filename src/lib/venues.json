@@ -1,1 +1,18 @@
-VENUES_PLACEHOLDER
+[
+  {"id":"VAN","city":"Vancouver","stadium":"BC Place","co":"ca"},
+  {"id":"TOR","city":"Toronto","stadium":"BMO Field","co":"ca"},
+  {"id":"MEX","city":"Mexico City","stadium":"Estadio Azteca","co":"mx"},
+  {"id":"MTY","city":"Monterrey","stadium":"Estadio BBVA","co":"mx"},
+  {"id":"GDL","city":"Guadalajara","stadium":"Estadio Akron","co":"mx"},
+  {"id":"SFO","city":"San Francisco","stadium":"Levi's Stadium","co":"us"},
+  {"id":"HOU","city":"Houston","stadium":"NRG Stadium","co":"us"},
+  {"id":"PHI","city":"Philadelphia","stadium":"Lincoln Financial Field","co":"us"},
+  {"id":"SEA","city":"Seattle","stadium":"Lumen Field","co":"us"},
+  {"id":"BOS","city":"Boston","stadium":"Gillette Stadium","co":"us"},
+  {"id":"KCM","city":"Kansas City","stadium":"Arrowhead Stadium","co":"us"},
+  {"id":"LAX","city":"Los Angeles","stadium":"SoFi Stadium","co":"us"},
+  {"id":"DAL","city":"Dallas","stadium":"AT&T Stadium","co":"us"},
+  {"id":"ATL","city":"Atlanta","stadium":"Mercedes-Benz Stadium","co":"us"},
+  {"id":"MIA","city":"Miami","stadium":"Hard Rock Stadium","co":"us"},
+  {"id":"NYC","city":"New York NJ","stadium":"MetLife Stadium","co":"us"}
+]
