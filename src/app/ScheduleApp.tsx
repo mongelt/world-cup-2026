@@ -6,7 +6,7 @@ import type { Match } from "@/lib/schedule";
 type ScoreState = Record<number, { home: string; away: string }>;
 type GroupTeam = { iso: string; code: string; name: string };
 type GroupData = Record<string, GroupTeam[]>;
-type View = "today" | "chart" | "list" | "standings";
+type View = "today" | "chart" | "list" | "standings" | "wildcard" | "bracket";
 
 // Game status based on ET kickoff time vs current ET time
 type GameStatus = "finished" | "live" | "upcoming";
@@ -157,6 +157,32 @@ function HScrollList({ children }: { children: React.ReactNode }) {
       <div style={{ minWidth: MATCH_CARD_MIN_WIDTH, display: "grid", gap: 10 }}>
         {children}
       </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Placeholder panels for upcoming features
+// ---------------------------------------------------------------------------
+
+function PlaceholderPanel({ icon, title, description }: { icon: string; title: string; description: string }) {
+  return (
+    <div style={{
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      textAlign: "center",
+      padding: "64px 32px",
+      gap: 16
+    }}>
+      <span style={{ fontSize: "3rem" }}>{icon}</span>
+      <h3 style={{ margin: 0, fontSize: "1.3rem", color: "var(--text)", fontFamily: "var(--font-ui)", fontWeight: 700 }}>
+        {title}
+      </h3>
+      <p style={{ margin: 0, color: "var(--text-secondary)", fontSize: "0.92rem", maxWidth: "48ch" }}>
+        {description}
+      </p>
     </div>
   );
 }
@@ -840,6 +866,8 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
             {viewBtn("chart", "Chart")}
             {viewBtn("list", "All Matches")}
             {viewBtn("standings", "Standings")}
+            {viewBtn("wildcard", "Wildcard")}
+            {viewBtn("bracket", "Bracket")}
           </div>
           {pill("Scores sync across devices")}
         </div>
@@ -848,7 +876,7 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
       {view === "today" && (
         <section className="wc-panel" style={panelStyle}>
           <div style={headStyle}>
-            <h2 style={{ margin: 0, color: "var(--text)", fontSize: "clamp(1.2rem,1.6vw,1.8rem)" }}>Today’s Matches</h2>
+            <h2 style={{ margin: 0, color: "var(--text)", fontSize: "clamp(1.2rem,1.6vw,1.8rem)" }}>Today's Matches</h2>
             <p style={{ margin: "6px 0 0", color: "var(--text-secondary)", maxWidth: "80ch", fontSize: "0.88rem" }}>
               All kickoff times in ET. Games tinted when live (≤120 min elapsed) or finished (&gt;120 min).
             </p>
@@ -921,6 +949,42 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
           </div>
           <div style={{ padding: "16px 18px 22px" }}>
             <StandingsView />
+          </div>
+        </section>
+      )}
+
+      {view === "wildcard" && (
+        <section className="wc-panel" style={panelStyle}>
+          <div style={headStyle}>
+            <h2 style={{ margin: 0, color: "var(--text)", fontSize: "clamp(1.2rem,1.6vw,1.8rem)" }}>Wildcard — Third-Place Rankings</h2>
+            <p style={{ margin: "6px 0 0", color: "var(--text-secondary)", maxWidth: "80ch", fontSize: "0.88rem" }}>
+              The 8 best third-place finishers across 12 groups advance to the Round of 32. Rankings coming next.
+            </p>
+          </div>
+          <div style={{ padding: "16px 18px 22px" }}>
+            <PlaceholderPanel
+              icon="🃏"
+              title="Third-place ranking table"
+              description="Will rank all 12 third-place finishers by points, goal difference, and goals scored to determine which 8 advance to the Round of 32."
+            />
+          </div>
+        </section>
+      )}
+
+      {view === "bracket" && (
+        <section className="wc-panel" style={panelStyle}>
+          <div style={headStyle}>
+            <h2 style={{ margin: 0, color: "var(--text)", fontSize: "clamp(1.2rem,1.6vw,1.8rem)" }}>Playoff Bracket</h2>
+            <p style={{ margin: "6px 0 0", color: "var(--text-secondary)", maxWidth: "80ch", fontSize: "0.88rem" }}>
+              Round of 32 through the Final. Winners auto-advance as scores are entered.
+            </p>
+          </div>
+          <div style={{ padding: "16px 18px 22px" }}>
+            <PlaceholderPanel
+              icon="🏆"
+              title="Knockout bracket"
+              description="Full 32-team bracket from Round of 32 to the Final. Seeding pulls from group standings and the wildcard third-place rankings."
+            />
           </div>
         </section>
       )}
