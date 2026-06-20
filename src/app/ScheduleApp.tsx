@@ -424,8 +424,8 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
             </div>
           ))}
           {groupLetters.map((group) => (
-            <>
-              <div key={`g-${group}`} style={{ background: "#d5cbc7", padding: "12px 10px", fontFamily: "var(--font-ui)", fontWeight: 700, fontSize: "1rem", textTransform: "uppercase", color: "var(--text)", borderTop: "1px solid rgba(46,42,40,0.14)", position: "sticky", left: 0, zIndex: 2 }}>Group {group}</div>
+            <React.Fragment key={group}>
+              <div style={{ background: "#d5cbc7", padding: "12px 10px", fontFamily: "var(--font-ui)", fontWeight: 700, fontSize: "1rem", textTransform: "uppercase", color: "var(--text)", borderTop: "1px solid rgba(46,42,40,0.14)", position: "sticky", left: 0, zIndex: 2 }}>Group {group}</div>
               {chartDays.map((day) => {
                 const dayMatches = groupStageMatches.filter((m) => m.group === group && m.date === day);
                 return (
@@ -460,7 +460,7 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
                   </div>
                 );
               })}
-            </>
+            </React.Fragment>
           ))}
         </div>
       </div>
@@ -624,9 +624,9 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
                     const advances = idx < advanceCount;
                     const cutlineAbove = idx === advanceCount && thirdPlaceTeams.length > advanceCount;
                     return (
-                      <>
+                      <React.Fragment key={team.code}>
                         {cutlineAbove && (
-                          <tr key="cutline">
+                          <tr>
                             <td colSpan={thHeaders.length} style={{
                               padding: "0",
                               background: "rgba(107,42,42,0.18)",
@@ -635,7 +635,7 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
                             }} />
                           </tr>
                         )}
-                        <tr key={team.code} style={{
+                        <tr style={{
                           borderBottom: "1px solid rgba(46,42,40,0.1)",
                           background: advances
                             ? "rgba(107,42,42,0.04)"
@@ -666,3 +666,98 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
                           <td style={{ padding: "10px 10px" }}>
                             <span style={{
                               display: "inline-flex", alignItems: "center",
+                              gap: 5, padding: "3px 10px", borderRadius: 999,
+                              fontSize: "0.7rem", fontFamily: "var(--font-ui)", fontWeight: 700,
+                              textTransform: "uppercase", letterSpacing: "0.05em",
+                              background: advances ? "rgba(107,42,42,0.1)" : "rgba(200,196,193,0.4)",
+                              color: advances ? "var(--accent)" : "var(--text-meta)",
+                              border: advances ? "1px solid rgba(107,42,42,0.25)" : "1px solid rgba(120,116,113,0.25)"
+                            }}>
+                              {advances ? "✓ Advances" : "Eliminated"}
+                            </span>
+                          </td>
+                        </tr>
+                      </React.Fragment>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Nav ───────────────────────────────────────────────────────────────────
+  const navItems: { id: View; label: string; emoji: string }[] = [
+    { id: "today",     label: "Today",     emoji: "📅" },
+    { id: "chart",     label: "Chart",     emoji: "📊" },
+    { id: "list",      label: "All Games", emoji: "📋" },
+    { id: "standings", label: "Standings", emoji: "🏆" },
+    { id: "wildcard",  label: "Wildcard",  emoji: "🃏" },
+    { id: "bracket",   label: "Bracket",   emoji: "🔱" },
+  ];
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 0, minHeight: "100vh" }}>
+      {/* Nav */}
+      <nav style={{
+        display: "flex", gap: 6, flexWrap: "wrap",
+        padding: "12px 16px", background: "rgba(255,255,255,0.72)",
+        backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
+        borderBottom: "1px solid var(--border-card)",
+        position: "sticky", top: 0, zIndex: 10
+      }}>
+        {navItems.map(({ id, label, emoji }) => (
+          <button
+            key={id}
+            onClick={() => setView(id)}
+            style={{
+              minHeight: 36, padding: "6px 14px",
+              borderRadius: 999,
+              border: "1px solid var(--border-card)",
+              background: view === id ? "var(--accent)" : "rgba(255,255,255,0.6)",
+              color: view === id ? "#fff" : "var(--text)",
+              cursor: "pointer", fontFamily: "var(--font-ui)",
+              fontWeight: 600, fontSize: "0.82rem",
+              display: "flex", alignItems: "center", gap: 5
+            }}
+          >
+            <span>{emoji}</span>{label}
+          </button>
+        ))}
+        {view === "list" && (
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search teams, cities…"
+            style={{
+              marginLeft: "auto", height: 36, padding: "0 12px",
+              borderRadius: 999, border: "1px solid var(--border-card)",
+              background: "rgba(255,255,255,0.8)", fontSize: "0.82rem",
+              fontFamily: "var(--font-ui)", color: "var(--text)",
+              minWidth: 200
+            }}
+          />
+        )}
+      </nav>
+
+      {/* Main content */}
+      <main style={{ flex: 1, padding: "20px 16px", maxWidth: 1400, margin: "0 auto", width: "100%" }}>
+        {view === "today"     && <TodayView />}
+        {view === "chart"     && <ChartView />}
+        {view === "list"      && <ListView />}
+        {view === "standings" && <StandingsView />}
+        {view === "wildcard"  && <WildcardView />}
+        {view === "bracket"   && (
+          <div style={{ textAlign: "center", padding: "64px 24px", color: "var(--text-meta)", fontFamily: "var(--font-ui)" }}>
+            <div style={{ fontSize: "3rem", marginBottom: 16 }}>🔱</div>
+            <div style={{ fontSize: "1.2rem", fontWeight: 700, color: "var(--text)", marginBottom: 8 }}>Bracket coming soon</div>
+            <div style={{ fontSize: "0.9rem" }}>Knockout bracket view will appear once the Round of 32 draw is set.</div>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
