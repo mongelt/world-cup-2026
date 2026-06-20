@@ -424,8 +424,8 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
             </div>
           ))}
           {groupLetters.map((group) => (
-            <React.Fragment key={group}>
-              <div style={{ background: "#d5cbc7", padding: "12px 10px", fontFamily: "var(--font-ui)", fontWeight: 700, fontSize: "1rem", textTransform: "uppercase", color: "var(--text)", borderTop: "1px solid rgba(46,42,40,0.14)", position: "sticky", left: 0, zIndex: 2 }}>Group {group}</div>
+            <>
+              <div key={`label-${group}`} style={{ background: "#d5cbc7", padding: "12px 10px", fontFamily: "var(--font-ui)", fontWeight: 700, fontSize: "1rem", textTransform: "uppercase", color: "var(--text)", borderTop: "1px solid rgba(46,42,40,0.14)", position: "sticky", left: 0, zIndex: 2 }}>Group {group}</div>
               {chartDays.map((day) => {
                 const dayMatches = groupStageMatches.filter((m) => m.group === group && m.date === day);
                 return (
@@ -460,7 +460,7 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
                   </div>
                 );
               })}
-            </React.Fragment>
+            </>
           ))}
         </div>
       </div>
@@ -624,9 +624,9 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
                     const advances = idx < advanceCount;
                     const cutlineAbove = idx === advanceCount && thirdPlaceTeams.length > advanceCount;
                     return (
-                      <React.Fragment key={team.code}>
+                      <>
                         {cutlineAbove && (
-                          <tr>
+                          <tr key={`cut-${team.code}`}>
                             <td colSpan={thHeaders.length} style={{
                               padding: "0",
                               background: "rgba(107,42,42,0.18)",
@@ -635,7 +635,7 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
                             }} />
                           </tr>
                         )}
-                        <tr style={{
+                        <tr key={team.code} style={{
                           borderBottom: "1px solid rgba(46,42,40,0.1)",
                           background: advances
                             ? "rgba(107,42,42,0.04)"
@@ -677,7 +677,7 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
                             </span>
                           </td>
                         </tr>
-                      </React.Fragment>
+                      </>
                     );
                   })
                 )}
