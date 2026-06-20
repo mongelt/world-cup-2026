@@ -3,8 +3,35 @@ import { NextResponse } from "next/server";
 
 const EC_KEY = "wc2026_scores";
 
-// Extract Edge Config ID from the EDGE_CONFIG connection string
-// Format: https://edge-config.vercel.com/ecfg_xxxx?token=...
+// Hardcoded final scores for completed matchday 1 (matches 1–24).
+// Edge Config values always override these if present (manual corrections).
+const HARDCODED_SCORES: Record<string, { home: string; away: string }> = {
+  "1":  { home: "2", away: "0" }, // MEX 2-0 RSA
+  "2":  { home: "2", away: "1" }, // KOR 2-1 CZE
+  "3":  { home: "1", away: "1" }, // CAN 1-1 BIH
+  "4":  { home: "4", away: "1" }, // USA 4-1 PAR
+  "5":  { home: "1", away: "1" }, // QAT 1-1 SUI
+  "6":  { home: "1", away: "1" }, // BRA 1-1 MAR
+  "7":  { home: "0", away: "1" }, // HAI 0-1 SCO
+  "8":  { home: "2", away: "0" }, // AUS 2-0 TUR
+  "9":  { home: "7", away: "1" }, // GER 7-1 CUR
+  "10": { home: "2", away: "2" }, // NED 2-2 JPN
+  "11": { home: "1", away: "0" }, // CIV 1-0 ECU
+  "12": { home: "5", away: "1" }, // SWE 5-1 TUN
+  "13": { home: "0", away: "0" }, // ESP 0-0 CPV
+  "14": { home: "1", away: "1" }, // BEL 1-1 EGY
+  "15": { home: "0", away: "1" }, // KSA 0-1 URU
+  "16": { home: "2", away: "2" }, // IRN 2-2 NZL
+  "17": { home: "3", away: "1" }, // FRA 3-1 SEN
+  "18": { home: "1", away: "4" }, // IRQ 1-4 NOR
+  "19": { home: "3", away: "0" }, // ARG 3-0 ALG
+  "20": { home: "3", away: "1" }, // AUT 3-1 JOR
+  "21": { home: "1", away: "1" }, // POR 1-1 COD
+  "22": { home: "4", away: "2" }, // ENG 4-2 CRO
+  "23": { home: "1", away: "0" }, // GHA 1-0 PAN
+  "24": { home: "1", away: "3" }, // UZB 1-3 COL
+};
+
 function getEdgeConfigId(): string {
   const raw = process.env.EDGE_CONFIG ?? "";
   const match = raw.match(/edge-config\.vercel\.com\/(ecfg_[^?]+)/);
@@ -13,10 +40,12 @@ function getEdgeConfigId(): string {
 
 export async function GET() {
   try {
-    const scores = await get<Record<string, { home: string; away: string }>>(EC_KEY);
-    return NextResponse.json(scores ?? {});
+    const stored = await get<Record<string, { home: string; away: string }>>(EC_KEY);
+    // Merge: hardcoded base, Edge Config on top
+    const merged = { ...HARDCODED_SCORES, ...(stored ?? {}) };
+    return NextResponse.json(merged);
   } catch {
-    return NextResponse.json({});
+    return NextResponse.json(HARDCODED_SCORES);
   }
 }
 
@@ -28,14 +57,12 @@ export async function POST(req: Request) {
       value: string;
     };
 
-    // Read current scores
     const current: Record<string, { home: string; away: string }> =
       (await get<Record<string, { home: string; away: string }>>(EC_KEY)) ?? {};
 
     if (!current[matchNumber]) current[matchNumber] = { home: "", away: "" };
     current[matchNumber][side] = String(value).replace(/[^0-9]/g, "").slice(0, 2);
 
-    // Write back via Vercel REST API
     const ecId = getEdgeConfigId();
     const res = await fetch(
       `https://api.vercel.com/v1/edge-config/${ecId}/items`,
