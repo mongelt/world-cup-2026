@@ -12,6 +12,13 @@ type GameStatus = "finished" | "live" | "upcoming";
 
 const MATCH_CARD_MIN_WIDTH = 860;
 
+// Matches whose scores are already locked in (hardcoded on the server)
+const LOCKED_MATCHES = new Set([
+  1,2,3,4,5,6,7,8,9,10,
+  11,12,13,14,15,16,17,18,19,20,
+  21,22,23,24
+]);
+
 interface Props {
   matches: Match[];
   groups: GroupData;
@@ -191,6 +198,8 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
   }, []);
 
   const setScore = useCallback((matchNumber: number, side: "home" | "away", value: string) => {
+    // Locked matches cannot be modified
+    if (LOCKED_MATCHES.has(matchNumber)) return;
     const clean = value.replace(/[^0-9]/g, "").slice(0, 2);
     setScores((prev) => ({
       ...prev,
@@ -257,26 +266,44 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
 
   function ScoreInputs({ matchNumber, compact = false }: { matchNumber: number; compact?: boolean }) {
     const state = scores[matchNumber] ?? { home: "", away: "" };
+    const locked = LOCKED_MATCHES.has(matchNumber);
     const inputStyle: React.CSSProperties = {
       width: compact ? 40 : 44,
       height: 38,
       borderRadius: 10,
       textAlign: "center",
       fontWeight: 700,
-      border: "1px solid rgba(107,42,42,0.22)",
-      background: "#fff",
-      color: "var(--text)",
-      fontSize: "0.9rem"
+      border: locked
+        ? "1px solid rgba(120,116,113,0.2)"
+        : "1px solid rgba(107,42,42,0.22)",
+      background: locked ? "rgba(200,196,193,0.35)" : "#fff",
+      color: locked ? "var(--text-meta)" : "var(--text)",
+      fontSize: "0.9rem",
+      cursor: locked ? "not-allowed" : "text",
+      pointerEvents: locked ? "none" : "auto",
+      opacity: locked ? 0.6 : 1,
     };
     return (
       <div style={{ display: "flex", gap: 6, alignItems: "center", justifyContent: compact ? "flex-end" : "center", marginTop: compact ? 0 : 8 }}>
-        <input style={inputStyle} inputMode="numeric" value={state.home}
-          aria-label={`Match ${matchNumber} home score`}
-          onChange={(e) => setScore(matchNumber, "home", e.target.value)} />
+        <input
+          style={inputStyle}
+          inputMode="numeric"
+          value={state.home}
+          readOnly={locked}
+          disabled={locked}
+          aria-label={`Match ${matchNumber} home score${locked ? " (locked)" : ""}`}
+          onChange={(e) => setScore(matchNumber, "home", e.target.value)}
+        />
         <span style={{ color: "var(--text-meta)", fontSize: "0.8rem", fontFamily: "var(--font-ui)" }}>–</span>
-        <input style={inputStyle} inputMode="numeric" value={state.away}
-          aria-label={`Match ${matchNumber} away score`}
-          onChange={(e) => setScore(matchNumber, "away", e.target.value)} />
+        <input
+          style={inputStyle}
+          inputMode="numeric"
+          value={state.away}
+          readOnly={locked}
+          disabled={locked}
+          aria-label={`Match ${matchNumber} away score${locked ? " (locked)" : ""}`}
+          onChange={(e) => setScore(matchNumber, "away", e.target.value)}
+        />
       </div>
     );
   }
@@ -638,177 +665,4 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
                           <td style={{ textAlign: "center", padding: "10px 6px", fontWeight: 800, fontSize: "0.95rem", color: "var(--text)" }}>{team.points}</td>
                           <td style={{ padding: "10px 10px" }}>
                             <span style={{
-                              display: "inline-flex", alignItems: "center", gap: 5,
-                              padding: "3px 10px", borderRadius: 999,
-                              fontFamily: "var(--font-ui)", fontSize: "0.68rem",
-                              fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em",
-                              whiteSpace: "nowrap",
-                              background: advances ? "rgba(107,42,42,0.12)" : "rgba(180,170,165,0.28)",
-                              color: advances ? "var(--accent)" : "var(--text-meta)",
-                              border: `1px solid ${advances ? "rgba(107,42,42,0.3)" : "rgba(120,116,113,0.2)"}`
-                            }}>
-                              {advances ? "✓ Advance" : "Eliminated"}
-                            </span>
-                          </td>
-                        </tr>
-                      </>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-            {thirdPlaceTeams.length > 0 && thirdPlaceTeams.length < totalGroups && (
-              <div style={{ padding: "12px 16px", borderTop: "1px solid var(--border-card)", fontFamily: "var(--font-ui)", fontSize: "0.78rem", color: "var(--text-meta)" }}>
-                Showing {thirdPlaceTeams.length} of {totalGroups} groups — {totalGroups - thirdPlaceTeams.length} group{totalGroups - thirdPlaceTeams.length !== 1 ? "s" : ""} not yet started.
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const pill = (label: string, subtle = false) => (
-    <span style={{
-      minHeight: 40, display: "inline-flex", alignItems: "center",
-      padding: "8px 14px", borderRadius: 999,
-      background: subtle ? "rgba(107,42,42,0.09)" : "rgba(255,255,255,0.06)",
-      border: `1px solid ${subtle ? "rgba(107,42,42,0.2)" : "rgba(255,255,255,0.12)"}`,
-      color: subtle ? "var(--accent)" : "#ccc",
-      fontFamily: "var(--font-ui)", fontSize: "0.78rem",
-      textTransform: "uppercase", letterSpacing: "0.05em", flexShrink: 0
-    }}>{label}</span>
-  );
-
-  const viewBtn = (v: View, label: string) => (
-    <button onClick={() => setView(v)} style={{
-      minHeight: 40, padding: "9px 16px", borderRadius: 999,
-      border: `1px solid ${view === v ? "var(--accent)" : "rgba(255,255,255,0.16)"}`,
-      background: view === v ? "var(--accent)" : "transparent",
-      color: view === v ? "#fff" : "#aaa",
-      cursor: "pointer", fontFamily: "var(--font-ui)", fontWeight: 700,
-      textTransform: "uppercase", letterSpacing: "0.05em", fontSize: "0.8rem",
-      transition: "all 0.15s ease"
-    }}>{label}</button>
-  );
-
-  const panelStyle: React.CSSProperties = {
-    background: "var(--bg-card)",
-    border: "1px solid rgba(107,42,42,0.18)",
-    borderTop: "6px solid var(--accent)",
-    borderBottom: "3px solid var(--accent)",
-    borderRadius: 22, overflow: "hidden",
-    boxShadow: "var(--shadow)"
-  };
-
-  const headStyle: React.CSSProperties = {
-    padding: "20px 22px 14px",
-    borderBottom: "1px solid rgba(107,42,42,0.12)"
-  };
-
-  return (
-    <div className="wc-app" style={{ maxWidth: 1700, margin: "0 auto", padding: "20px 16px" }}>
-      <header className="wc-topbar" style={{
-        position: "sticky", top: 0, zIndex: 10, marginBottom: 20,
-        background: "rgba(11,10,10,0.92)",
-        backdropFilter: "saturate(180%) blur(20px)",
-        border: "1px solid rgba(252,84,84,0.2)",
-        borderTop: "8px solid var(--accent)",
-        borderRadius: 22, padding: "16px 18px",
-        boxShadow: "0 4px 16px rgba(0,0,0,0.14)"
-      }}>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
-          <div>
-            <h1 style={{ margin: 0, color: "#e8e8e8", fontSize: "clamp(1.7rem,2.3vw,2.7rem)", fontFamily: "var(--font-ui)", fontWeight: 700, lineHeight: 1 }}>World Cup 2026</h1>
-            <div style={{ marginTop: 6, color: "#888", fontFamily: "var(--font-ui)", fontSize: "0.78rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>104 matches · 12 groups · EST kickoff times</div>
-          </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {viewBtn("today", "Today")}
-            {viewBtn("chart", "Chart")}
-            {viewBtn("list", "All Matches")}
-            {viewBtn("standings", "Standings")}
-            {viewBtn("wildcard", "Wildcard")}
-            {viewBtn("bracket", "Bracket")}
-          </div>
-          {pill("Scores sync across devices")}
-        </div>
-      </header>
-
-      {view === "today" && (
-        <section className="wc-panel" style={panelStyle}>
-          <div style={headStyle}>
-            <h2 style={{ margin: 0, color: "var(--text)", fontSize: "clamp(1.2rem,1.6vw,1.8rem)" }}>Today's Matches</h2>
-            <p style={{ margin: "6px 0 0", color: "var(--text-secondary)", maxWidth: "80ch", fontSize: "0.88rem" }}>All kickoff times in ET. Games tinted when live (≤120 min elapsed) or finished (&gt;120 min).</p>
-          </div>
-          <div style={{ padding: "16px 18px 22px" }}><TodayView /></div>
-        </section>
-      )}
-
-      {view === "chart" && (
-        <section className="wc-panel" style={panelStyle}>
-          <div style={headStyle}>
-            <h2 style={{ margin: 0, color: "var(--text)", fontSize: "clamp(1.2rem,1.6vw,1.8rem)" }}>Group Stage Chart</h2>
-            <p style={{ margin: "6px 0 0", color: "var(--text-secondary)", maxWidth: "80ch", fontSize: "0.88rem" }}>Groups A–L as rows, match days as columns. Score inputs sync to Edge Config so everyone sees the same scores.</p>
-          </div>
-          <div style={{ padding: "16px 18px 22px" }}><ChartView /></div>
-        </section>
-      )}
-
-      {view === "list" && (
-        <section className="wc-panel" style={panelStyle}>
-          <div style={headStyle}>
-            <h2 style={{ margin: 0, color: "var(--text)", fontSize: "clamp(1.2rem,1.6vw,1.8rem)" }}>All Matches</h2>
-            <p style={{ margin: "6px 0 0", color: "var(--text-secondary)", maxWidth: "80ch", fontSize: "0.88rem" }}>Group stage through the final. Search by team, city, stage, or match number.</p>
-          </div>
-          <div style={{ padding: "16px 18px 22px" }}>
-            <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap", alignItems: "center" }}>
-              <input
-                value={search} onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search team, city, stadium, group, stage, match #…"
-                style={{ flex: "1 1 340px", minHeight: 44, borderRadius: 12, padding: "0 14px", border: "1px solid rgba(107,42,42,0.22)", background: "#fff", color: "var(--text)", maxWidth: 440 }}
-              />
-              {pill(`${matches.filter((m) => { const q = search.trim().toLowerCase(); return !q || [m.matchNumber, m.homeDisplay, m.awayDisplay, m.stageLabel, m.city, m.stadium].join(" ").toLowerCase().includes(q); }).length} matches`, true)}
-            </div>
-            <ListView />
-          </div>
-        </section>
-      )}
-
-      {view === "standings" && (
-        <section className="wc-panel" style={panelStyle}>
-          <div style={headStyle}>
-            <h2 style={{ margin: 0, color: "var(--text)", fontSize: "clamp(1.2rem,1.6vw,1.8rem)" }}>Group Standings</h2>
-            <p style={{ margin: "6px 0 0", color: "var(--text-secondary)", maxWidth: "80ch", fontSize: "0.88rem" }}>Enter scores in the chart or list view and standings update instantly here.</p>
-          </div>
-          <div style={{ padding: "16px 18px 22px" }}><StandingsView /></div>
-        </section>
-      )}
-
-      {view === "wildcard" && (
-        <section className="wc-panel" style={panelStyle}>
-          <div style={headStyle}>
-            <h2 style={{ margin: 0, color: "var(--text)", fontSize: "clamp(1.2rem,1.6vw,1.8rem)" }}>Wildcard — Third-Place Rankings</h2>
-            <p style={{ margin: "6px 0 0", color: "var(--text-secondary)", maxWidth: "80ch", fontSize: "0.88rem" }}>The 8 best third-place finishers across 12 groups advance to the Round of 32.</p>
-          </div>
-          <div style={{ padding: "16px 18px 22px" }}><WildcardView /></div>
-        </section>
-      )}
-
-      {view === "bracket" && (
-        <section className="wc-panel" style={panelStyle}>
-          <div style={headStyle}>
-            <h2 style={{ margin: 0, color: "var(--text)", fontSize: "clamp(1.2rem,1.6vw,1.8rem)" }}>Playoff Bracket</h2>
-            <p style={{ margin: "6px 0 0", color: "var(--text-secondary)", maxWidth: "80ch", fontSize: "0.88rem" }}>Round of 32 through the Final. Winners auto-advance as scores are entered.</p>
-          </div>
-          <div style={{ padding: "16px 18px 22px" }}>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: "64px 32px", gap: 16 }}>
-              <span style={{ fontSize: "3rem" }}>🏆</span>
-              <h3 style={{ margin: 0, fontSize: "1.3rem", color: "var(--text)", fontFamily: "var(--font-ui)", fontWeight: 700 }}>Knockout bracket</h3>
-              <p style={{ margin: 0, color: "var(--text-secondary)", fontSize: "0.92rem", maxWidth: "48ch" }}>Full 32-team bracket from Round of 32 to the Final. Seeding pulls from group standings and the wildcard third-place rankings.</p>
-            </div>
-          </div>
-        </section>
-      )}
-    </div>
-  );
-}
+                              display: "inline-flex", alignItems: "center",
