@@ -594,21 +594,15 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
     const bracketResults = buildBracketResults(wildcardSlots);
 
     // ── Layout constants ───────────────────────────────────────────────────
-    // Card dimensions (fixed width; height is content-driven but we reserve CARD_H)
     const CARD_W = 160;
-    const CARD_H = 96;   // reserved height per card slot
-    const ARM = 18;      // horizontal connector arm length on each side
-    const COL_GAP = 8;   // gap between card-column and its connector SVG
+    const CARD_H = 96;
+    const ARM = 18;
+    const COL_GAP = 8;
 
-    // Each round column is sized so that R32 (8 cards) fits with even spacing.
-    // Rounds with fewer cards get proportionally taller slots so they vertically
-    // centre between the pair that feed them.
     const R32_COUNT = 8;
-    const SLOT_H = CARD_H + 16;         // height of one R32 slot (card + padding)
-    const COL_H = R32_COUNT * SLOT_H;   // total column height = 816px
+    const SLOT_H = CARD_H + 16;
+    const COL_H = R32_COUNT * SLOT_H;
 
-    // For a column with `n` cards, card i is centred at:
-    //   cardCenterY(i, n) = (COL_H / n) * i + (COL_H / n) / 2
     function cardCenterY(i: number, n: number): number {
       const slotH = COL_H / n;
       return slotH * i + slotH / 2;
@@ -690,12 +684,7 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
       );
     }
 
-    // ── BracketCol: absolutely-positioned cards + SVG connectors ──────────
-    // `nums`       = match numbers top→bottom
-    // `connector`  = "right" | "left" | "none"
-    //   "right": draw connector lines to the RIGHT toward nextNums
-    //   "left":  draw connector lines to the LEFT toward nextNums
-    // `nextNums`   = match numbers in the adjacent (closer-to-center) column
+    // ── BracketCol ─────────────────────────────────────────────────────────
     function BracketCol({
       nums,
       connector,
@@ -711,7 +700,6 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
       const stroke = "rgba(107,42,42,0.35)";
       const svgW = ARM + COL_GAP;
 
-      // Build connector paths: pairs (0,1), (2,3)... connect to one nextNums card
       const connectorLines: React.ReactNode[] = [];
       if (nextNums && connector !== "none") {
         for (let i = 0; i < n; i += 2) {
@@ -722,7 +710,6 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
           const nextCy   = cardCenterY(nextIdx, nextNums.length);
 
           if (connector === "right") {
-            // Arms go right from card edge, vertical bar joins them, then line to next col
             connectorLines.push(
               <g key={i}>
                 <line x1={0}    y1={topCy} x2={ARM} y2={topCy} stroke={stroke} strokeWidth={1.5} />
@@ -732,7 +719,6 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
               </g>
             );
           } else {
-            // connector === "left": arms go left from card edge
             connectorLines.push(
               <g key={i}>
                 <line x1={svgW} y1={topCy} x2={ARM} y2={topCy} stroke={stroke} strokeWidth={1.5} />
@@ -747,23 +733,19 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
 
       return (
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0 }}>
-          {/* Round label */}
           <div style={{
             fontFamily: "var(--font-ui)", fontWeight: 700, fontSize: "0.65rem",
             textTransform: "uppercase", letterSpacing: "0.06em",
             color: "var(--text-meta)", marginBottom: 6, whiteSpace: "nowrap",
           }}>{label}</div>
 
-          {/* Cards + connector row */}
           <div style={{ display: "flex", flexDirection: "row", alignItems: "flex-start" }}>
-            {/* Left connector SVG (for right-side columns that connect leftward) */}
             {connector === "left" && nextNums && (
               <svg width={svgW} height={COL_H} style={{ flexShrink: 0, display: "block" }}>
                 {connectorLines}
               </svg>
             )}
 
-            {/* Absolutely-positioned cards column */}
             <div style={{ position: "relative", width: CARD_W, height: COL_H, flexShrink: 0 }}>
               {nums.map((matchNum, i) => {
                 const cy = cardCenterY(i, n);
@@ -783,7 +765,6 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
               })}
             </div>
 
-            {/* Right connector SVG (for left-side columns that connect rightward) */}
             {connector === "right" && nextNums && (
               <svg width={svgW} height={COL_H} style={{ flexShrink: 0, display: "block" }}>
                 {connectorLines}
@@ -794,14 +775,13 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
       );
     }
 
-    // ── Center column: SF (1 card, vertically centred) ────────────────────
     function SFCol({ matchNum, label, connector, nextCy }: {
       matchNum: number;
       label: string;
       connector: "right" | "left";
-      nextCy: number; // y of the Final card centre
+      nextCy: number;
     }) {
-      const cy = cardCenterY(0, 1); // = COL_H / 2
+      const cy = cardCenterY(0, 1);
       const stroke = "rgba(107,42,42,0.35)";
       const svgW = ARM + COL_GAP;
 
@@ -835,9 +815,6 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
       );
     }
 
-    // ── Final + 3rd place center piece ────────────────────────────────────
-    // Placed between the two SF columns. The Final card sits at COL_H/2,
-    // the 3rd place card sits below it.
     function FinalCol() {
       const finalCy = COL_H / 2;
       const thirdCy = finalCy + CARD_H + 24;
@@ -862,7 +839,6 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
       );
     }
 
-    // finalCy is used by SFCol so it knows where to draw its connector line to
     const finalCy = COL_H / 2;
 
     return (
@@ -874,24 +850,26 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
           </div>
         </div>
 
-        <div style={{ overflowX: "auto", paddingBottom: 16 }}>
+        {/* Full-bleed scroll container: breaks out of the 1400px max-width main */}
+        <div style={{
+          marginInline: "calc(-16px - max(0px, (100vw - 1400px) / 2))",
+          paddingInline: 16,
+          overflowX: "auto",
+          paddingBottom: 16,
+        }}>
           <div style={{ display: "flex", flexDirection: "row", alignItems: "flex-start", gap: 0 }}>
 
-            {/* ── LEFT HALF: R32 → R16 → QF → SF ── */}
+            {/* ── LEFT HALF ── */}
             <BracketCol nums={LEFT_R32} connector="right" nextNums={LEFT_R16} label="Round of 32" />
             <BracketCol nums={LEFT_R16} connector="right" nextNums={LEFT_QF}  label="Round of 16" />
             <BracketCol nums={LEFT_QF}  connector="right" nextNums={LEFT_SF}  label="Quarterfinals" />
-
-            {/* Left SF → Final */}
             <SFCol matchNum={101} label="Semifinal" connector="right" nextCy={finalCy} />
 
-            {/* ── CENTER: Final + 3rd ── */}
+            {/* ── CENTER ── */}
             <FinalCol />
 
-            {/* Right SF → Final */}
+            {/* ── RIGHT HALF ── */}
             <SFCol matchNum={102} label="Semifinal" connector="left" nextCy={finalCy} />
-
-            {/* ── RIGHT HALF: QF → R16 → R32 ── */}
             <BracketCol nums={RIGHT_QF}  connector="left" nextNums={RIGHT_R16} label="Quarterfinals" />
             <BracketCol nums={RIGHT_R16} connector="left" nextNums={RIGHT_R32} label="Round of 16" />
             <BracketCol nums={RIGHT_R32} connector="none"                      label="Round of 32" />
