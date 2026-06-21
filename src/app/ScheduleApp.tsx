@@ -87,14 +87,6 @@ const FINAL_TOPOLOGY: [number, string, string, string, string, string][] = [
   [104, "W101", "W102", "NYC", "7/19", "3p"],
 ];
 
-// ── Bracket tree structure ────────────────────────────────────────────────
-// Left side:  R32(8) -> R16(4) -> QF(2) -> SF(1)
-// Right side: R32(8) -> R16(4) -> QF(2) -> SF(1)  [mirrored]
-// Center:     Final + 3rd place
-//
-// Feed map (left):  74,77->89; 73,75->90; 76,78->91; 79,80->92; 89,90->97; 91,92->99; 97,99->101
-// Feed map (right): 83,84->93; 81,82->94; 86,88->95; 85,87->96; 93,94->98; 95,96->100; 98,100->102
-
 const LEFT_R32  = [74, 77, 73, 75, 76, 78, 79, 80];
 const LEFT_R16  = [89, 90, 91, 92];
 const LEFT_QF   = [97, 99];
@@ -244,6 +236,82 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
     table.forEach((t) => { t.gd = t.gf - t.ga; });
     table.sort((a, b) => b.points - a.points || b.gd - a.gd || b.gf - a.gf || a.name.localeCompare(b.name));
     return table;
+  }
+
+  // ── Advancement status helpers ────────────────────────────────────────────
+  // Each group has 3 matchdays (each team plays 3 games).
+  // A team is "confirmed advanced" when top-2 is locked regardless of remaining games.
+  // A team is "confirmed eliminated" when reaching top-2 is mathematically impossible.
+  // Otherwise: "contention" (in the mix) or "pending" (no games played).
+  type TeamStatus = "advanced" | "eliminated" | "contention" | "pending";
+
+  function getGroupStatuses(group: string): Map<string, TeamStatus> {
+    const table = buildGroupTable(group);
+    const matchesInGroup = groupStageMatches.filter((m) => m.group === group);
+    const totalMatches = matchesInGroup.length; // 6 for a 4-team group
+    const playedMatches = matchesInGroup.filter((m) => {
+      const s = scores[m.matchNumber];
+      return s && s.home !== "" && s.away !== "";
+    }).length;
+
+    const result = new Map<string, TeamStatus>();
+
+    if (playedMatches === 0) {
+      table.forEach((t) => result.set(t.code, "pending"));
+      return result;
+    }
+
+    // Remaining matches per team
+    const remainingPerTeam = new Map<string, number>();
+    table.forEach((t) => {
+      const gamesLeft = 3 - t.played;
+      remainingPerTeam.set(t.code, Math.max(0, gamesLeft));
+    });
+
+    // Max possible points for each team
+    function maxPoints(t: StandingRow): number {
+      return t.points + (remainingPerTeam.get(t.code) ?? 0) * 3;
+    }
+
+    if (playedMatches === totalMatches) {
+      // All games done — positions are final
+      table.forEach((t, idx) => {
+        result.set(t.code, idx < 2 ? "advanced" : "eliminated");
+      });
+      return result;
+    }
+
+    // Partial results: check mathematical locks
+    table.forEach((team, idx) => {
+      const myMax = maxPoints(team);
+      // Count how many teams currently above me cannot be caught
+      const guaranteedAbove = table.filter((other, oIdx) => {
+        if (oIdx === idx) return false;
+        // other's current points > my max possible points
+        return other.points > myMax;
+      }).length;
+
+      if (guaranteedAbove >= 2) {
+        result.set(team.code, "eliminated");
+        return;
+      }
+
+      // Check if this team is guaranteed top-2: their current points > max possible of all teams below
+      const guaranteedBelow = table.filter((other, oIdx) => {
+        if (oIdx === idx) return false;
+        return maxPoints(other) < team.points;
+      }).length;
+
+      // Need at least (teamCount - 2) teams guaranteed below us
+      if (guaranteedBelow >= table.length - 2) {
+        result.set(team.code, "advanced");
+        return;
+      }
+
+      result.set(team.code, "contention");
+    });
+
+    return result;
   }
 
   function resolveTeam(seed: string, bracketResults: Map<number, { winner: StandingRow | null; loser: StandingRow | null }>): { code: string; iso: string; label: string } | null {
@@ -446,8 +514,31 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
     return <HScrollList>{filtered.map((m) => <MatchCard key={m.matchNumber} match={m} showDate />)}</HScrollList>;
   }
 
+  // ── Status pill for a team row ────────────────────────────────────────────
+  function StatusPill({ status }: { status: TeamStatus }) {
+    const cfg: Record<TeamStatus, { label: string; bg: string; color: string; border: string }> = {
+      advanced:    { label: "✓ Advanced",   bg: "rgba(43,107,50,0.12)",  color: "#2b6b32", border: "rgba(43,107,50,0.35)" },
+      eliminated:  { label: "✗ Eliminated", bg: "rgba(120,116,113,0.14)", color: "var(--text-meta)", border: "rgba(120,116,113,0.28)" },
+      contention:  { label: "In contention", bg: "rgba(107,42,42,0.08)", color: "var(--accent)", border: "rgba(107,42,42,0.22)" },
+      pending:     { label: "Not started",   bg: "rgba(180,170,165,0.14)", color: "var(--text-meta)", border: "rgba(120,116,113,0.2)" },
+    };
+    const c = cfg[status];
+    return (
+      <span style={{
+        display: "inline-flex", alignItems: "center", padding: "3px 10px",
+        borderRadius: 999, fontFamily: "var(--font-ui)", fontSize: "0.68rem",
+        fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em",
+        whiteSpace: "nowrap", background: c.bg, color: c.color,
+        border: `1px solid ${c.border}`,
+      }}>
+        {c.label}
+      </span>
+    );
+  }
+
   function StandingsView() {
     const table = buildGroupTable(activeGroup);
+    const statuses = getGroupStatuses(activeGroup);
     const relevant = groupStageMatches.filter((m) => m.group === activeGroup).sort((a, b) => a.matchNumber - b.matchNumber);
     return (
       <div className="wc-standings-layout" style={{ display: "grid", gridTemplateColumns: "minmax(240px,280px) 1fr", gap: 16, alignItems: "start" }}>
@@ -508,16 +599,31 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
             <span style={{ fontFamily: "var(--font-ui)", fontSize: "0.75rem", color: "var(--text-meta)", textTransform: "uppercase" }}>Win 3pts · Draw 1pt · Loss 0pts</span>
           </div>
           <div style={{ overflowX: "auto" }}>
-            <table style={{ minWidth: 480 }}>
-              <thead><tr>{["Team","P","W","D","L","GF","GA","GD","Pts"].map((h) => <th key={h} style={{ padding: "10px 8px", fontSize: "0.72rem", fontFamily: "var(--font-ui)", textTransform: "uppercase", color: "var(--text-meta)", background: "rgba(215,205,202,0.55)", textAlign: h === "Team" ? "left" : "center", whiteSpace: "nowrap" }}>{h}</th>)}</tr></thead>
+            <table style={{ minWidth: 560 }}>
+              <thead><tr>{["#","Team","P","W","D","L","GF","GA","GD","Pts","Status"].map((h) => <th key={h} style={{ padding: "10px 8px", fontSize: "0.72rem", fontFamily: "var(--font-ui)", textTransform: "uppercase", color: "var(--text-meta)", background: "rgba(215,205,202,0.55)", textAlign: (h === "Team" || h === "Status") ? "left" : "center", whiteSpace: "nowrap" }}>{h}</th>)}</tr></thead>
               <tbody>
-                {table.map((team) => (
-                  <tr key={team.code} style={{ borderBottom: "1px solid rgba(46,42,40,0.1)" }}>
-                    <td style={{ padding: "10px 8px" }}><div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 700, color: "var(--text)", fontSize: "0.88rem" }}>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={`https://flagcdn.com/w40/${team.iso}.png`} alt={team.name} width={22} height={16} loading="lazy" style={{ borderRadius: 3, border: "1px solid rgba(0,0,0,0.08)", objectFit: "cover" }} /><span>{team.code} · {team.name}</span></div></td>
-                    {[team.played,team.wins,team.draws,team.losses,team.gf,team.ga,team.gd].map((v,i)=><td key={i} style={{ textAlign: "center", padding: "10px 6px", fontSize: "0.85rem", color: "var(--text-secondary)" }}>{v}</td>)}
-                    <td style={{ textAlign: "center", padding: "10px 6px", fontWeight: 800, fontSize: "0.95rem", color: "var(--text)" }}>{team.points}</td>
-                  </tr>
-                ))}
+                {table.map((team, idx) => {
+                  const st = statuses.get(team.code) ?? "pending";
+                  const rowBg =
+                    st === "advanced"   ? "rgba(43,107,50,0.05)" :
+                    st === "eliminated" ? "rgba(200,196,193,0.22)" :
+                    idx < 2             ? "rgba(107,42,42,0.03)" : undefined;
+                  return (
+                    <tr key={team.code} style={{ borderBottom: "1px solid rgba(46,42,40,0.1)", background: rowBg, opacity: st === "eliminated" ? 0.72 : 1 }}>
+                      <td style={{ textAlign: "center", padding: "10px 6px", fontFamily: "var(--font-ui)", fontWeight: 800, fontSize: "0.88rem", color: idx < 2 ? "var(--accent)" : "var(--text-meta)" }}>{idx + 1}</td>
+                      <td style={{ padding: "10px 8px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 700, color: "var(--text)", fontSize: "0.88rem" }}>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={`https://flagcdn.com/w40/${team.iso}.png`} alt={team.name} width={22} height={16} loading="lazy" style={{ borderRadius: 3, border: "1px solid rgba(0,0,0,0.08)", objectFit: "cover" }} />
+                          <span>{team.code} · {team.name}</span>
+                        </div>
+                      </td>
+                      {[team.played,team.wins,team.draws,team.losses,team.gf,team.ga,team.gd].map((v,i)=><td key={i} style={{ textAlign: "center", padding: "10px 6px", fontSize: "0.85rem", color: "var(--text-secondary)" }}>{v}</td>)}
+                      <td style={{ textAlign: "center", padding: "10px 6px", fontWeight: 800, fontSize: "0.95rem", color: "var(--text)" }}>{team.points}</td>
+                      <td style={{ padding: "10px 10px" }}><StatusPill status={st} /></td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -593,7 +699,6 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
     const wildcardSlots: (StandingRow | null)[] = Array.from({ length: 8 }, (_, i) => thirdPlaceTeams[i] ?? null);
     const bracketResults = buildBracketResults(wildcardSlots);
 
-    // ── Layout constants ───────────────────────────────────────────────────
     const CARD_W = 160;
     const CARD_H = 96;
     const ARM = 18;
@@ -608,7 +713,6 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
       return slotH * i + slotH / 2;
     }
 
-    // ── TeamRow ────────────────────────────────────────────────────────────
     function TeamRow({ seed, matchRow, wcs }: {
       seed: string;
       matchRow: [number, string, string, string, string, string];
@@ -650,7 +754,6 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
       );
     }
 
-    // ── BracketCard ────────────────────────────────────────────────────────
     function BracketCard({ matchNum }: { matchNum: number }) {
       const row = TOPO_MAP.get(matchNum)!;
       const [, seed1, seed2, , date, timeRaw] = row;
@@ -684,7 +787,6 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
       );
     }
 
-    // ── BracketCol ─────────────────────────────────────────────────────────
     function BracketCol({
       nums,
       connector,
@@ -843,7 +945,6 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
 
     return (
       <div>
-        {/* Full-bleed scroll container: breaks out of the 1400px max-width main */}
         <div style={{
           marginInline: "calc(-16px - max(0px, (100vw - 1400px) / 2))",
           paddingInline: 16,
@@ -851,17 +952,11 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
           paddingBottom: 16,
         }}>
           <div style={{ display: "flex", flexDirection: "row", alignItems: "flex-start", gap: 0 }}>
-
-            {/* ── LEFT HALF ── */}
             <BracketCol nums={LEFT_R32} connector="right" nextNums={LEFT_R16} label="Round of 32" />
             <BracketCol nums={LEFT_R16} connector="right" nextNums={LEFT_QF}  label="Round of 16" />
             <BracketCol nums={LEFT_QF}  connector="right" nextNums={LEFT_SF}  label="Quarterfinals" />
             <SFCol matchNum={101} label="Semifinal" connector="right" nextCy={finalCy} />
-
-            {/* ── CENTER ── */}
             <FinalCol />
-
-            {/* ── RIGHT HALF ── */}
             <SFCol matchNum={102} label="Semifinal" connector="left" nextCy={finalCy} />
             <BracketCol nums={RIGHT_QF}  connector="left" nextNums={RIGHT_SF}  label="Quarterfinals" />
             <BracketCol nums={RIGHT_R16} connector="left" nextNums={RIGHT_QF}  label="Round of 16" />
