@@ -843,13 +843,6 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
 
     return (
       <div>
-        <div style={{ display: "flex", alignItems: "flex-start", gap: 12, background: "rgba(107,42,42,0.07)", border: "1px solid rgba(107,42,42,0.18)", borderRadius: 14, padding: "12px 16px", marginBottom: 20 }}>
-          <span style={{ fontSize: "1.4rem", lineHeight: 1, flexShrink: 0 }}>🔱</span>
-          <div style={{ fontFamily: "var(--font-ui)", fontSize: "0.84rem", color: "var(--text-secondary)", lineHeight: 1.55 }}>
-            <strong style={{ color: "var(--text)" }}>Knockout Bracket</strong> — Seeds update live from group standings and wildcard rankings. Enter scores to advance teams.
-          </div>
-        </div>
-
         {/* Full-bleed scroll container: breaks out of the 1400px max-width main */}
         <div style={{
           marginInline: "calc(-16px - max(0px, (100vw - 1400px) / 2))",
@@ -870,45 +863,47 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
 
             {/* ── RIGHT HALF ── */}
             <SFCol matchNum={102} label="Semifinal" connector="left" nextCy={finalCy} />
-            <BracketCol nums={RIGHT_QF}  connector="left" nextNums={RIGHT_R16} label="Quarterfinals" />
-            <BracketCol nums={RIGHT_R16} connector="left" nextNums={RIGHT_R32} label="Round of 16" />
-            <BracketCol nums={RIGHT_R32} connector="none"                      label="Round of 32" />
-
+            <BracketCol nums={RIGHT_QF}  connector="left" nextNums={RIGHT_SF}  label="Quarterfinals" />
+            <BracketCol nums={RIGHT_R16} connector="left" nextNums={RIGHT_QF}  label="Round of 16" />
+            <BracketCol nums={RIGHT_R32} connector="left" nextNums={RIGHT_R16} label="Round of 32" />
           </div>
         </div>
       </div>
     );
   }
 
-  // ── Nav ───────────────────────────────────────────────────────────────────
-  const navItems: { id: View; label: string; emoji: string }[] = [
-    { id: "today",     label: "Today",     emoji: "📅" },
-    { id: "chart",     label: "Chart",     emoji: "📊" },
-    { id: "list",      label: "All Games", emoji: "📋" },
-    { id: "standings", label: "Standings", emoji: "🏆" },
-    { id: "wildcard",  label: "Wildcard",  emoji: "🃏" },
-    { id: "bracket",   label: "Bracket",   emoji: "🔱" },
-  ];
-
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 0, minHeight: "100vh" }}>
-      <nav style={{ display: "flex", gap: 6, flexWrap: "wrap", padding: "12px 16px", background: "rgba(255,255,255,0.72)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", borderBottom: "1px solid var(--border-card)", position: "sticky", top: 0, zIndex: 10 }}>
-        {navItems.map(({ id, label, emoji }) => (
-          <button key={id} onClick={() => setView(id)} style={{ minHeight: 36, padding: "6px 14px", borderRadius: 999, border: "1px solid var(--border-card)", background: view === id ? "var(--accent)" : "rgba(255,255,255,0.6)", color: view === id ? "#fff" : "var(--text)", cursor: "pointer", fontFamily: "var(--font-ui)", fontWeight: 600, fontSize: "0.82rem", display: "flex", alignItems: "center", gap: 5 }}>
-            <span>{emoji}</span>{label}
-          </button>
-        ))}
-        {view === "list" && (
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search teams, cities…" style={{ marginLeft: "auto", height: 36, padding: "0 12px", borderRadius: 999, border: "1px solid var(--border-card)", background: "rgba(255,255,255,0.8)", fontSize: "0.82rem", fontFamily: "var(--font-ui)", color: "var(--text)", minWidth: 200 }} />
-        )}
-      </nav>
-      <main style={{ flex: 1, padding: "20px 16px", maxWidth: 1400, margin: "0 auto", width: "100%" }}>
-        {view === "today"     && <TodayView />}
-        {view === "chart"     && <ChartView />}
-        {view === "list"      && <ListView />}
-        {view === "standings" && <StandingsView />}
-        {view === "wildcard"  && <WildcardView />}
-        {view === "bracket"   && <BracketView />}
+    <div style={{ minHeight: "100dvh", background: "var(--bg)", fontFamily: "var(--font-body)" }}>
+      <header style={{ background: "rgba(26,22,24,0.97)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(255,255,255,0.07)", position: "sticky", top: 0, zIndex: 100 }}>
+        <div style={{ maxWidth: 1400, margin: "0 auto", padding: "0 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, minHeight: 52 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: "1.3rem" }}>⚽</span>
+            <span style={{ fontFamily: "var(--font-ui)", fontWeight: 800, fontSize: "0.95rem", color: "#f0ece8", letterSpacing: "0.02em", whiteSpace: "nowrap" }}>WC 2026</span>
+          </div>
+          <nav style={{ display: "flex", gap: 4, overflowX: "auto", WebkitOverflowScrolling: "touch" as React.CSSProperties["WebkitOverflowScrolling"], flexShrink: 1, minWidth: 0 }}>
+            {(["today","chart","list","standings","wildcard","bracket"] as View[]).map((v) => (
+              <button key={v} onClick={() => setView(v)} style={{ padding: "6px 14px", borderRadius: 999, border: "none", background: view === v ? "var(--accent)" : "transparent", color: view === v ? "#fff" : "rgba(240,236,232,0.6)", fontFamily: "var(--font-ui)", fontWeight: 700, fontSize: "0.78rem", textTransform: "capitalize", cursor: "pointer", whiteSpace: "nowrap", transition: "background 0.18s, color 0.18s", minHeight: 32 }}>
+                {v === "today" ? "Today" : v === "chart" ? "Chart" : v === "list" ? "All Matches" : v === "standings" ? "Standings" : v === "wildcard" ? "Wildcards" : "Bracket"}
+              </button>
+            ))}
+          </nav>
+          {view === "list" && (
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search…"
+              style={{ padding: "6px 12px", borderRadius: 999, border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.08)", color: "#f0ece8", fontFamily: "var(--font-ui)", fontSize: "0.8rem", width: 160, outline: "none" }}
+            />
+          )}
+        </div>
+      </header>
+      <main style={{ maxWidth: 1400, margin: "0 auto", padding: "20px 16px 48px" }}>
+        {view === "today"      && <TodayView />}
+        {view === "chart"      && <ChartView />}
+        {view === "list"       && <ListView />}
+        {view === "standings"  && <StandingsView />}
+        {view === "wildcard"   && <WildcardView />}
+        {view === "bracket"    && <BracketView />}
       </main>
     </div>
   );
