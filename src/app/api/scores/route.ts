@@ -3,9 +3,10 @@ import { NextResponse } from "next/server";
 
 const EC_KEY = "wc2026_scores";
 
-// Hardcoded final scores for completed matchday 1 (matches 1–24).
+// Hardcoded final scores for completed matches (matchdays 1 & 2).
 // Edge Config values always override these if present (manual corrections).
 const HARDCODED_SCORES: Record<string, { home: string; away: string }> = {
+  // ── Matchday 1 ──────────────────────────────────────────────────────────
   "1":  { home: "2", away: "0" }, // MEX 2-0 RSA
   "2":  { home: "2", away: "1" }, // KOR 2-1 CZE
   "3":  { home: "1", away: "1" }, // CAN 1-1 BIH
@@ -30,6 +31,31 @@ const HARDCODED_SCORES: Record<string, { home: string; away: string }> = {
   "22": { home: "4", away: "2" }, // ENG 4-2 CRO
   "23": { home: "1", away: "0" }, // GHA 1-0 PAN
   "24": { home: "1", away: "3" }, // UZB 1-3 COL
+  // ── Matchday 2 ──────────────────────────────────────────────────────────
+  "25": { home: "1", away: "1" }, // CZE 1-1 RSA
+  "26": { home: "4", away: "1" }, // SUI 4-1 BIH
+  "27": { home: "6", away: "0" }, // CAN 6-0 QAT
+  "28": { home: "1", away: "0" }, // MEX 1-0 KOR
+  "29": { home: "2", away: "0" }, // USA 2-0 AUS
+  "30": { home: "1", away: "1" }, // SCO 1-1 MAR
+  "31": { home: "3", away: "0" }, // BRA 3-0 HAI
+  "32": { home: "0", away: "1" }, // TUR 0-1 PAR
+  "33": { home: "5", away: "1" }, // NED 5-1 SWE
+  "34": { home: "2", away: "1" }, // GER 2-1 CIV
+  "35": { home: "0", away: "0" }, // ECU 0-0 CUR
+  "36": { home: "0", away: "4" }, // TUN 0-4 JPN
+  "37": { home: "4", away: "0" }, // ESP 4-0 KSA
+  "38": { home: "0", away: "0" }, // BEL 0-0 IRN
+  "39": { home: "2", away: "0" }, // URU 2-0 CPV
+  "40": { home: "1", away: "0" }, // NZL 1-0 EGY
+  "41": { home: "1", away: "0" }, // ARG 1-0 AUT
+  "42": { home: "2", away: "0" }, // FRA 2-0 IRQ
+  "43": { home: "1", away: "1" }, // NOR 1-1 SEN
+  "44": { home: "0", away: "1" }, // JOR 0-1 ALG
+  "45": { home: "2", away: "0" }, // POR 2-0 UZB
+  "46": { home: "3", away: "0" }, // ENG 3-0 GHA
+  "47": { home: "1", away: "1" }, // PAN 1-1 CRO
+  "48": { home: "2", away: "1" }, // COL 2-1 COD
 };
 
 function getEdgeConfigId(): string {
