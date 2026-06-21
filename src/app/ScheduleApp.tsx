@@ -11,7 +11,6 @@ type GameStatus = "finished" | "live" | "upcoming";
 
 const MATCH_CARD_MIN_WIDTH = 860;
 
-// Matches whose scores are already locked in (hardcoded on the server)
 const LOCKED_MATCHES = new Set([
   1,2,3,4,5,6,7,8,9,10,
   11,12,13,14,15,16,17,18,19,20,
@@ -40,7 +39,7 @@ interface StandingRow {
   points: number;
 }
 
-// ── Bracket topology (extracted from poster.html M array) ────────────────────
+// ── Bracket topology ───────────────────────────────────────────────────────
 const R32_TOPOLOGY: [number, string, string, string, string, string][] = [
   [73,  "2A",  "2B",  "LAX", "6/28", "3p"],
   [74,  "1E",  "3rd", "BOS", "6/29", "4:30p"],
@@ -87,6 +86,33 @@ const FINAL_TOPOLOGY: [number, string, string, string, string, string][] = [
   [103, "L101", "L102", "MIA", "7/18", "5p"],
   [104, "W101", "W102", "NYC", "7/19", "3p"],
 ];
+
+// ── Bracket tree structure ────────────────────────────────────────────────
+// Each column is an array of match numbers ordered top-to-bottom such that
+// pairs of adjacent matches (0&1, 2&3, ...) feed the corresponding match
+// in the next column.
+//
+// Left side:  R32(8) -> R16(4) -> QF(2) -> SF(1)
+// Right side: SF(1) -> QF(2) -> R16(4) -> R32(8)
+// Center:     Final (+ 3rd place below)
+//
+// Feed map:
+//  74,77 -> 89;  73,75 -> 90;  76,78 -> 91;  79,80 -> 92
+//  89,90 -> 97;  91,92 -> 99
+//  97,98 -> 101; 99,100 -> 102
+//  83,84 -> 93;  81,82 -> 94;  86,88 -> 95;  85,87 -> 96
+//  93,94 -> 98;  95,96 -> 100
+
+const LEFT_R32  = [74, 77, 73, 75, 76, 78, 79, 80]; // top→bottom, pairs feed LEFT_R16
+const LEFT_R16  = [89, 90, 91, 92];
+const LEFT_QF   = [97, 99];
+const CENTER_SF = [101, 102];
+const RIGHT_QF  = [98, 100];
+const RIGHT_R16 = [93, 94, 95, 96];
+const RIGHT_R32 = [83, 84, 81, 82, 86, 88, 85, 87]; // top→bottom
+
+const ALL_TOPOLOGY = [...R32_TOPOLOGY, ...R16_TOPOLOGY, ...QF_TOPOLOGY, ...SF_TOPOLOGY, ...FINAL_TOPOLOGY];
+const TOPO_MAP = new Map(ALL_TOPOLOGY.map((r) => [r[0], r]));
 
 // ── Utility helpers ───────────────────────────────────────────────────────────
 function shortDate(key: string) {
@@ -200,7 +226,6 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
 
   const groupLetters = Object.keys(groups);
 
-  // ── Shared standings builder ─────────────────────────────────────────────────
   function buildGroupTable(group: string): StandingRow[] {
     const groupTeams = groups[group] ?? [];
     const table: StandingRow[] = groupTeams.map(({ iso, code, name }) => ({
@@ -228,7 +253,6 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
     return table;
   }
 
-  // ── Bracket seed resolver ─────────────────────────────────────────────────────
   function resolveTeam(seed: string, bracketResults: Map<number, { winner: StandingRow | null; loser: StandingRow | null }>): { code: string; iso: string; label: string } | null {
     const groupMatch = seed.match(/^([12])([A-L])$/);
     if (groupMatch) {
@@ -278,8 +302,7 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
       return null;
     }
 
-    const allTopology = [...R32_TOPOLOGY, ...R16_TOPOLOGY, ...QF_TOPOLOGY, ...SF_TOPOLOGY, ...FINAL_TOPOLOGY];
-    for (const row of allTopology) {
+    for (const row of ALL_TOPOLOGY) {
       const [matchNum, seed1, seed2] = row;
       const state = scores[matchNum];
       const homeTeam = getTeamForSeed(seed1, row);
@@ -521,7 +544,6 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
     );
   }
 
-  // ── Wildcard View ─────────────────────────────────────────────────────────
   function WildcardView() {
     const thirdPlaceTeams: StandingRow[] = groupLetters.map((g) => buildGroupTable(g)[2]).filter(Boolean) as StandingRow[];
     thirdPlaceTeams.sort((a, b) => b.points - a.points || b.gd - a.gd || b.gf - a.gf || a.code.localeCompare(b.code));
@@ -573,67 +595,101 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
 
   // ── Bracket View ──────────────────────────────────────────────────────────
   function BracketView() {
-    // Build wildcard slots from sorted third-place teams
     const thirdPlaceTeams: StandingRow[] = groupLetters.map((g) => buildGroupTable(g)[2]).filter(Boolean) as StandingRow[];
     thirdPlaceTeams.sort((a, b) => b.points - a.points || b.gd - a.gd || b.gf - a.gf || a.code.localeCompare(b.code));
     const wildcardSlots: (StandingRow | null)[] = Array.from({ length: 8 }, (_, i) => thirdPlaceTeams[i] ?? null);
     const bracketResults = buildBracketResults(wildcardSlots);
 
-    function TeamSlot({ seed, matchRow }: { seed: string; matchRow: [number, string, string, string, string, string] }) {
+    // Dimensions for the bracket layout
+    const CARD_W = 158;
+    const CARD_H = 90;   // approximate rendered height of a BracketCard
+    const COL_GAP = 28;  // horizontal gap between columns
+    const CONNECTOR = 14; // how far the horizontal arm extends from the card edge
+
+    // Vertical spacing: each round has fewer matches, so slots are taller.
+    // R32 has 8 slots per half -> slot height = CARD_H + some padding.
+    // R16 has 4 -> 2x slot height. QF has 2 -> 4x. SF has 1 per half -> 8x.
+    const R32_SLOT = CARD_H + 12;
+    const HALF_H = 8 * R32_SLOT; // total height of one half of the bracket
+
+    // Compute vertical center for a match at a given slot index and round.
+    // slotIndex is the 0-based position in the column.
+    function slotCenterY(colMatchIndex: number, totalInCol: number): number {
+      const slotH = HALF_H / totalInCol;
+      return slotH * colMatchIndex + slotH / 2;
+    }
+
+    function TeamRow({ seed, matchRow, wildcardSlots: wcs }: {
+      seed: string;
+      matchRow: [number, string, string, string, string, string];
+      wildcardSlots: (StandingRow | null)[];
+    }) {
       if (seed === "3rd") {
         const wcMatches = R32_TOPOLOGY.filter((r) => r[1] === "3rd" || r[2] === "3rd");
         const myIdx = wcMatches.findIndex((r) => r[0] === matchRow[0]);
-        const wc = wildcardSlots[myIdx];
+        const wc = wcs[myIdx];
         return (
-          <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 6px", minWidth: 90 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 8px", minHeight: 28 }}>
             {wc ? (
               <>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={`https://flagcdn.com/w40/${wc.iso}.png`} alt={wc.name} width={18} height={13} loading="lazy" style={{ borderRadius: 2, border: "1px solid rgba(0,0,0,0.08)", objectFit: "cover", flexShrink: 0 }} />
                 <span style={{ fontWeight: 700, fontSize: "0.75rem", color: "var(--text)" }}>{wc.code}</span>
-                <span style={{ fontSize: "0.65rem", color: "var(--text-meta)", fontFamily: "var(--font-ui)" }}>3rd</span>
+                <span style={{ fontSize: "0.62rem", color: "var(--text-meta)", fontFamily: "var(--font-ui)" }}>3rd</span>
               </>
             ) : (
-              <span style={{ fontSize: "0.72rem", color: "var(--text-meta)", fontFamily: "var(--font-ui)", fontStyle: "italic" }}>Wildcard {myIdx + 1}</span>
+              <span style={{ fontSize: "0.7rem", color: "var(--text-meta)", fontFamily: "var(--font-ui)", fontStyle: "italic" }}>Wildcard {myIdx + 1}</span>
             )}
           </div>
         );
       }
       const resolved = resolveTeam(seed, bracketResults);
-      if (!resolved || !resolved.iso) {
-        return (
-          <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 6px", minWidth: 90 }}>
-            <span style={{ fontSize: "0.72rem", color: "var(--text-meta)", fontFamily: "var(--font-ui)", fontStyle: "italic" }}>{seed}</span>
-          </div>
-        );
-      }
+      const hasTeam = resolved && resolved.iso;
       return (
-        <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 6px", minWidth: 90 }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={`https://flagcdn.com/w40/${resolved.iso}.png`} alt={resolved.code} width={18} height={13} loading="lazy" style={{ borderRadius: 2, border: "1px solid rgba(0,0,0,0.08)", objectFit: "cover", flexShrink: 0 }} />
-          <span style={{ fontWeight: 700, fontSize: "0.75rem", color: "var(--text)" }}>{resolved.label}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 8px", minHeight: 28 }}>
+          {hasTeam ? (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={`https://flagcdn.com/w40/${resolved!.iso}.png`} alt={resolved!.code} width={18} height={13} loading="lazy" style={{ borderRadius: 2, border: "1px solid rgba(0,0,0,0.08)", objectFit: "cover", flexShrink: 0 }} />
+              <span style={{ fontWeight: 700, fontSize: "0.75rem", color: "var(--text)" }}>{resolved!.label}</span>
+            </>
+          ) : (
+            <span style={{ fontSize: "0.7rem", color: "var(--text-meta)", fontFamily: "var(--font-ui)", fontStyle: "italic" }}>{seed}</span>
+          )}
         </div>
       );
     }
 
-    function BracketMatch({ row }: { row: [number, string, string, string, string, string] }) {
-      const [matchNum, seed1, seed2, venueId, date, timeRaw] = row;
+    function BracketCard({ matchNum }: { matchNum: number }) {
+      const row = TOPO_MAP.get(matchNum)!;
+      const [, seed1, seed2, , date, timeRaw] = row;
       const state = scores[matchNum] ?? { home: "", away: "" };
       const hasScore = state.home !== "" && state.away !== "";
       return (
-        <div style={{ background: "rgba(255,255,255,0.82)", border: "1px solid var(--border-card)", borderRadius: 12, overflow: "hidden", minWidth: 160, boxShadow: "0 1px 4px rgba(46,42,40,0.08)" }}>
-          <div style={{ background: "rgba(215,205,202,0.4)", padding: "3px 8px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border-card)" }}>
-            <span style={{ fontFamily: "var(--font-ui)", fontSize: "0.62rem", color: "var(--accent)", fontWeight: 700 }}>#{matchNum}</span>
-            <span style={{ fontFamily: "var(--font-ui)", fontSize: "0.6rem", color: "var(--text-meta)" }}>{shortDate(date)} · {parseTime(timeRaw)}</span>
+        <div style={{
+          background: "rgba(255,255,255,0.88)",
+          border: "1px solid var(--border-card)",
+          borderRadius: 10,
+          overflow: "hidden",
+          width: CARD_W,
+          boxShadow: "0 1px 6px rgba(46,42,40,0.1)",
+        }}>
+          {/* Header */}
+          <div style={{ background: "rgba(215,205,202,0.5)", padding: "3px 8px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border-card)" }}>
+            <span style={{ fontFamily: "var(--font-ui)", fontSize: "0.6rem", color: "var(--accent)", fontWeight: 700 }}>#{matchNum}</span>
+            <span style={{ fontFamily: "var(--font-ui)", fontSize: "0.58rem", color: "var(--text-meta)" }}>{shortDate(date)} · {parseTime(timeRaw)}</span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "2px 4px 2px 0", borderBottom: "1px solid rgba(46,42,40,0.07)" }}>
-            <TeamSlot seed={seed1} matchRow={row} />
-            {hasScore && <span style={{ fontFamily: "var(--font-ui)", fontWeight: 800, fontSize: "0.8rem", color: "var(--text)", paddingRight: 6 }}>{state.home}</span>}
+          {/* Home row */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid rgba(46,42,40,0.07)" }}>
+            <TeamRow seed={seed1} matchRow={row} wildcardSlots={wildcardSlots} />
+            {hasScore && <span style={{ fontFamily: "var(--font-ui)", fontWeight: 800, fontSize: "0.8rem", color: "var(--text)", paddingRight: 8 }}>{state.home}</span>}
           </div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "2px 4px 2px 0" }}>
-            <TeamSlot seed={seed2} matchRow={row} />
-            {hasScore && <span style={{ fontFamily: "var(--font-ui)", fontWeight: 800, fontSize: "0.8rem", color: "var(--text)", paddingRight: 6 }}>{state.away}</span>}
+          {/* Away row */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <TeamRow seed={seed2} matchRow={row} wildcardSlots={wildcardSlots} />
+            {hasScore && <span style={{ fontFamily: "var(--font-ui)", fontWeight: 800, fontSize: "0.8rem", color: "var(--text)", paddingRight: 8 }}>{state.away}</span>}
           </div>
+          {/* Score inputs */}
           <div style={{ padding: "3px 8px", background: "rgba(215,205,202,0.2)", borderTop: "1px solid rgba(46,42,40,0.07)" }}>
             <ScoreInputs matchNumber={matchNum} compact />
           </div>
@@ -641,14 +697,162 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
       );
     }
 
-    function RoundColumn({ label, rows }: { label: string; rows: [number, string, string, string, string, string][] }) {
+    // Renders one column of match cards with SVG connector lines to the next column.
+    // `matches` is ordered top-to-bottom.
+    // `pairFeeds` = true means pairs of adjacent cards (0&1, 2&3…) connect to one card in nextCol.
+    // `side` = "right" means connectors go right (toward center), "left" means go left.
+    function BracketColumn({
+      matchNums,
+      totalSlots,
+      nextColMatchNums,
+      side,
+      label,
+    }: {
+      matchNums: number[];
+      totalSlots: number;
+      nextColMatchNums?: number[];
+      side: "left" | "right";
+      label: string;
+    }) {
+      const svgW = CONNECTOR * 2 + 2;
+      const connectorStroke = "rgba(107,42,42,0.35)";
+
       return (
-        <div style={{ display: "flex", flexDirection: "column", gap: 0, alignItems: "stretch" }}>
-          <div style={{ textAlign: "center", fontFamily: "var(--font-ui)", fontWeight: 700, fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-meta)", padding: "6px 0 10px", borderBottom: "1px solid var(--border-card)", marginBottom: 10 }}>{label}</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, flex: 1, justifyContent: "space-around" }}>
-            {rows.map((row) => <BracketMatch key={row[0]} row={row} />)}
+        <div style={{ display: "flex", flexDirection: "row", alignItems: "flex-start" }}>
+          {/* Left connector SVG (only on right-side columns connecting leftward, i.e., coming FROM right) */}
+          {side === "left" && nextColMatchNums && (
+            <svg
+              width={svgW}
+              height={HALF_H}
+              style={{ overflow: "visible", flexShrink: 0 }}
+            >
+              {matchNums.map((matchNum, i) => {
+                const pairIndex = Math.floor(i / 2);
+                const cy = slotCenterY(i, totalSlots);
+                const partnerIdx = i % 2 === 0 ? i + 1 : i - 1;
+                const partnerCy = slotCenterY(partnerIdx, totalSlots);
+                const midY = (cy + partnerCy) / 2;
+                const nextCy = nextColMatchNums
+                  ? slotCenterY(pairIndex, nextColMatchNums.length)
+                  : midY;
+                // horizontal arm from card to vertical bar
+                // then vertical bar from cy to midY
+                // then horizontal arm to next card
+                return (
+                  <g key={matchNum}>
+                    <line x1={0} y1={cy} x2={CONNECTOR} y2={cy} stroke={connectorStroke} strokeWidth={1.5} />
+                    {i % 2 === 0 && (
+                      <>
+                        <line x1={CONNECTOR} y1={cy} x2={CONNECTOR} y2={partnerCy} stroke={connectorStroke} strokeWidth={1.5} />
+                        <line x1={CONNECTOR} y1={midY} x2={svgW} y2={nextCy} stroke={connectorStroke} strokeWidth={1.5} />
+                      </>
+                    )}
+                  </g>
+                );
+              })}
+            </svg>
+          )}
+
+          {/* Cards column */}
+          <div style={{ display: "flex", flexDirection: "column", height: HALF_H, justifyContent: "space-around" }}>
+            {/* Label at top */}
+            <div style={{
+              position: "absolute",
+              // label is rendered via outer wrapper
+            }} />
+            {matchNums.map((n) => (
+              <div key={n} style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <BracketCard matchNum={n} />
+              </div>
+            ))}
+          </div>
+
+          {/* Right connector SVG */}
+          {side === "right" && nextColMatchNums && (
+            <svg
+              width={svgW}
+              height={HALF_H}
+              style={{ overflow: "visible", flexShrink: 0 }}
+            >
+              {matchNums.map((matchNum, i) => {
+                const pairIndex = Math.floor(i / 2);
+                const cy = slotCenterY(i, totalSlots);
+                const partnerIdx = i % 2 === 0 ? i + 1 : i - 1;
+                const partnerCy = slotCenterY(partnerIdx, totalSlots);
+                const midY = (cy + partnerCy) / 2;
+                const nextCy = slotCenterY(pairIndex, nextColMatchNums.length);
+                return (
+                  <g key={matchNum}>
+                    <line x1={0} y1={cy} x2={CONNECTOR} y2={cy} stroke={connectorStroke} strokeWidth={1.5} />
+                    {i % 2 === 0 && (
+                      <>
+                        <line x1={CONNECTOR} y1={cy} x2={CONNECTOR} y2={partnerCy} stroke={connectorStroke} strokeWidth={1.5} />
+                        <line x1={CONNECTOR} y1={midY} x2={svgW} y2={nextCy} stroke={connectorStroke} strokeWidth={1.5} />
+                      </>
+                    )}
+                  </g>
+                );
+              })}
+            </svg>
+          )}
+        </div>
+      );
+    }
+
+    // Labeled column wrapper
+    function LabeledCol(props: Parameters<typeof BracketColumn>[0] & { label: string }) {
+      return (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "stretch" }}>
+          <div style={{
+            textAlign: "center",
+            fontFamily: "var(--font-ui)",
+            fontWeight: 700,
+            fontSize: "0.68rem",
+            textTransform: "uppercase",
+            letterSpacing: "0.06em",
+            color: "var(--text-meta)",
+            padding: "0 0 8px",
+            whiteSpace: "nowrap",
+          }}>{props.label}</div>
+          <BracketColumn {...props} />
+        </div>
+      );
+    }
+
+    // SF / Final center column (single card, centered)
+    function CenterCol({ matchNums, label }: { matchNums: number[]; label: string }) {
+      return (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <div style={{
+            fontFamily: "var(--font-ui)",
+            fontWeight: 700,
+            fontSize: "0.68rem",
+            textTransform: "uppercase",
+            letterSpacing: "0.06em",
+            color: "var(--text-meta)",
+            marginBottom: 8,
+            whiteSpace: "nowrap",
+          }}>{label}</div>
+          <div style={{ display: "flex", flexDirection: "column", height: HALF_H, justifyContent: "space-around", alignItems: "center" }}>
+            {matchNums.map((n) => <BracketCard key={n} matchNum={n} />)}
           </div>
         </div>
+      );
+    }
+
+    // Connector between SF and Final (a simple horizontal line + vertical bracket)
+    function SFtoFinalConnector() {
+      const sf1Y = slotCenterY(0, 2);
+      const sf2Y = slotCenterY(1, 2);
+      const midY = (sf1Y + sf2Y) / 2;
+      const finalY = HALF_H / 2;
+      return (
+        <svg width={CONNECTOR * 2 + 2} height={HALF_H} style={{ overflow: "visible", flexShrink: 0 }}>
+          <line x1={0} y1={sf1Y} x2={CONNECTOR} y2={sf1Y} stroke="rgba(107,42,42,0.35)" strokeWidth={1.5} />
+          <line x1={0} y1={sf2Y} x2={CONNECTOR} y2={sf2Y} stroke="rgba(107,42,42,0.35)" strokeWidth={1.5} />
+          <line x1={CONNECTOR} y1={sf1Y} x2={CONNECTOR} y2={sf2Y} stroke="rgba(107,42,42,0.35)" strokeWidth={1.5} />
+          <line x1={CONNECTOR} y1={midY} x2={CONNECTOR * 2 + 2} y2={finalY} stroke="rgba(107,42,42,0.35)" strokeWidth={1.5} />
+        </svg>
       );
     }
 
@@ -660,18 +864,76 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
             <strong style={{ color: "var(--text)" }}>Knockout Bracket</strong> — Seeds update live from group standings and wildcard rankings. Enter scores to advance teams.
           </div>
         </div>
-        <div style={{ overflowX: "auto", paddingBottom: 12 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(6, minmax(170px, 1fr))", gap: 12, minWidth: 1080, alignItems: "start" }}>
-            <RoundColumn label="Round of 32" rows={R32_TOPOLOGY.slice(0, 8)} />
-            <RoundColumn label="Round of 16" rows={R16_TOPOLOGY.slice(0, 4)} />
-            <RoundColumn label="Quarterfinals" rows={QF_TOPOLOGY.slice(0, 2)} />
-            <RoundColumn label="Semifinals" rows={SF_TOPOLOGY} />
-            <RoundColumn label="Round of 16 (2)" rows={R16_TOPOLOGY.slice(4)} />
-            <RoundColumn label="Round of 32 (2)" rows={R32_TOPOLOGY.slice(8)} />
+
+        <div style={{ overflowX: "auto", paddingBottom: 16 }}>
+          {/* Round labels row */}
+          <div style={{
+            display: "flex",
+            alignItems: "flex-end",
+            gap: 0,
+            paddingBottom: 4,
+            minWidth: (CARD_W + COL_GAP) * 7 + CARD_W + CONNECTOR * 12,
+          }}>
+            {[
+              { label: "Round of 32", w: CARD_W + CONNECTOR * 2 + COL_GAP },
+              { label: "Round of 16", w: CARD_W + CONNECTOR * 2 + COL_GAP },
+              { label: "Quarterfinals", w: CARD_W + CONNECTOR * 2 + COL_GAP },
+              { label: "Semifinals", w: CARD_W + CONNECTOR * 2 + COL_GAP },
+              { label: "Semifinals", w: CARD_W + CONNECTOR * 2 + COL_GAP },
+              { label: "Quarterfinals", w: CARD_W + CONNECTOR * 2 + COL_GAP },
+              { label: "Round of 16", w: CARD_W + CONNECTOR * 2 + COL_GAP },
+              { label: "Round of 32", w: CARD_W + CONNECTOR * 2 },
+            ].map(({ label, w }, i) => (
+              <div key={i} style={{
+                width: w,
+                flexShrink: 0,
+                textAlign: "center",
+                fontFamily: "var(--font-ui)",
+                fontWeight: 700,
+                fontSize: "0.68rem",
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+                color: i === 3 || i === 4 ? "var(--accent)" : "var(--text-meta)",
+              }}>{label}</div>
+            ))}
+            <div style={{ width: CARD_W + CONNECTOR * 4, textAlign: "center", fontFamily: "var(--font-ui)", fontWeight: 700, fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--accent)" }}>Final</div>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(170px, 1fr))", gap: 12, maxWidth: 360, margin: "16px auto 0" }}>
-            <RoundColumn label="3rd Place" rows={[FINAL_TOPOLOGY[0]]} />
-            <RoundColumn label="Final" rows={[FINAL_TOPOLOGY[1]]} />
+
+          {/* Main bracket row */}
+          <div style={{
+            display: "flex",
+            alignItems: "flex-start",
+            gap: COL_GAP,
+          }}>
+            {/* LEFT: R32 -> R16 -> QF -> SF */}
+            <BracketColumn matchNums={LEFT_R32} totalSlots={8} nextColMatchNums={LEFT_R16} side="right" label="Round of 32" />
+            <BracketColumn matchNums={LEFT_R16} totalSlots={4} nextColMatchNums={LEFT_QF} side="right" label="Round of 16" />
+            <BracketColumn matchNums={LEFT_QF} totalSlots={2} nextColMatchNums={CENTER_SF} side="right" label="Quarterfinals" />
+
+            {/* CENTER: SF */}
+            <CenterCol matchNums={CENTER_SF} label="Semifinals" />
+
+            {/* SF -> Final connector */}
+            <SFtoFinalConnector />
+
+            {/* CENTER: Final + 3rd */}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "space-around", height: HALF_H + 24 }}>
+              <div style={{ fontFamily: "var(--font-ui)", fontWeight: 700, fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--accent)", marginBottom: 4 }}>Final</div>
+              <BracketCard matchNum={104} />
+              <div style={{ marginTop: 12, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                <div style={{ fontFamily: "var(--font-ui)", fontWeight: 700, fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-meta)" }}>3rd Place</div>
+                <BracketCard matchNum={103} />
+              </div>
+            </div>
+
+            {/* Final -> SF connector (mirrored) */}
+            <SFtoFinalConnector />
+
+            {/* RIGHT: SF -> QF -> R16 -> R32 */}
+            <CenterCol matchNums={[CENTER_SF[1], CENTER_SF[0]].map(() => 0).map((_, i) => CENTER_SF[i])} label="Semifinals" />
+            <BracketColumn matchNums={RIGHT_QF} totalSlots={2} nextColMatchNums={RIGHT_R16} side="left" label="Quarterfinals" />
+            <BracketColumn matchNums={RIGHT_R16} totalSlots={4} nextColMatchNums={RIGHT_R32} side="left" label="Round of 16" />
+            <BracketColumn matchNums={RIGHT_R32} totalSlots={8} side="left" label="Round of 32" />
           </div>
         </div>
       </div>
