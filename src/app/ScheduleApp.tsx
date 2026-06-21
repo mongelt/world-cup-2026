@@ -436,9 +436,55 @@ export default function ScheduleApp({ matches, groups, chartDays, groupStageMatc
     return (
       <div className="wc-standings-layout" style={{ display: "grid", gridTemplateColumns: "minmax(240px,280px) 1fr", gap: 16, alignItems: "start" }}>
         <aside style={{ display: "grid", gap: 8 }}>
-          {groupLetters.map((g) => (
-            <button key={g} onClick={() => setActiveGroup(g)} style={{ minHeight: 44, padding: "10px 16px", borderRadius: 999, border: "1px solid var(--border-card)", background: g === activeGroup ? "var(--accent)" : "rgba(255,255,255,0.6)", color: g === activeGroup ? "#fff" : "var(--text)", cursor: "pointer", fontFamily: "var(--font-ui)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", fontSize: "0.85rem" }}>Group {g}</button>
-          ))}
+          {groupLetters.map((g) => {
+            const teamFlags = (groups[g] ?? []).map((t) => t.iso);
+            const isActive = g === activeGroup;
+            return (
+              <button
+                key={g}
+                onClick={() => setActiveGroup(g)}
+                style={{
+                  minHeight: 44,
+                  padding: "8px 14px",
+                  borderRadius: 999,
+                  border: "1px solid var(--border-card)",
+                  background: isActive ? "var(--accent)" : "rgba(255,255,255,0.6)",
+                  color: isActive ? "#fff" : "var(--text)",
+                  cursor: "pointer",
+                  fontFamily: "var(--font-ui)",
+                  fontWeight: 700,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                  fontSize: "0.85rem",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  width: "100%",
+                }}
+              >
+                <span style={{ flexShrink: 0 }}>Group {g}</span>
+                <span style={{ display: "flex", alignItems: "center", gap: 3, flexWrap: "wrap", marginLeft: "auto" }}>
+                  {teamFlags.map((iso) => (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      key={iso}
+                      src={`https://flagcdn.com/w40/${iso}.png`}
+                      alt={iso}
+                      width={18}
+                      height={13}
+                      loading="lazy"
+                      style={{
+                        borderRadius: 2,
+                        border: isActive ? "1px solid rgba(255,255,255,0.4)" : "1px solid rgba(0,0,0,0.08)",
+                        objectFit: "cover",
+                        flexShrink: 0,
+                      }}
+                    />
+                  ))}
+                </span>
+              </button>
+            );
+          })}
         </aside>
         <div style={{ background: "rgba(255,255,255,0.58)", border: "1px solid var(--border-card)", borderRadius: 18, overflow: "hidden" }}>
           <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--border-card)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
