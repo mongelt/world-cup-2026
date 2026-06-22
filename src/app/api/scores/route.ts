@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 const EC_KEY = "wc2026_scores";
 
-// Hardcoded final scores for completed matches (matchdays 1 & 2).
+// Hardcoded final scores for completed matches.
 // Edge Config values always override these if present (manual corrections).
 const HARDCODED_SCORES: Record<string, { home: string; away: string }> = {
   // ── Matchday 1 ──────────────────────────────────────────────────────────
@@ -21,7 +21,7 @@ const HARDCODED_SCORES: Record<string, { home: string; away: string }> = {
   "12": { home: "5", away: "1" }, // SWE 5-1 TUN
   "13": { home: "0", away: "0" }, // ESP 0-0 CPV
   "14": { home: "1", away: "1" }, // BEL 1-1 EGY
-  "15": { home: "0", away: "1" }, // KSA 0-1 URU
+  "15": { home: "1", away: "1" }, // KSA 1-1 URU
   "16": { home: "2", away: "2" }, // IRN 2-2 NZL
   "17": { home: "3", away: "1" }, // FRA 3-1 SEN
   "18": { home: "1", away: "4" }, // IRQ 1-4 NOR
@@ -37,7 +37,7 @@ const HARDCODED_SCORES: Record<string, { home: string; away: string }> = {
   "27": { home: "6", away: "0" }, // CAN 6-0 QAT
   "28": { home: "1", away: "0" }, // MEX 1-0 KOR
   "29": { home: "2", away: "0" }, // USA 2-0 AUS
-  "30": { home: "1", away: "1" }, // SCO 1-1 MAR
+  "30": { home: "0", away: "1" }, // SCO 0-1 MAR
   "31": { home: "3", away: "0" }, // BRA 3-0 HAI
   "32": { home: "0", away: "1" }, // TUR 0-1 PAR
   "33": { home: "5", away: "1" }, // NED 5-1 SWE
@@ -47,15 +47,7 @@ const HARDCODED_SCORES: Record<string, { home: string; away: string }> = {
   "37": { home: "4", away: "0" }, // ESP 4-0 KSA
   "38": { home: "0", away: "0" }, // BEL 0-0 IRN
   "39": { home: "2", away: "0" }, // URU 2-0 CPV
-  "40": { home: "1", away: "0" }, // NZL 1-0 EGY
-  "41": { home: "1", away: "0" }, // ARG 1-0 AUT
-  "42": { home: "2", away: "0" }, // FRA 2-0 IRQ
-  "43": { home: "1", away: "1" }, // NOR 1-1 SEN
-  "44": { home: "0", away: "1" }, // JOR 0-1 ALG
-  "45": { home: "2", away: "0" }, // POR 2-0 UZB
-  "46": { home: "3", away: "0" }, // ENG 3-0 GHA
-  "47": { home: "1", away: "1" }, // PAN 1-1 CRO
-  "48": { home: "2", away: "1" }, // COL 2-1 COD
+  "40": { home: "1", away: "3" }, // NZL 1-3 EGY
 };
 
 function getEdgeConfigId(): string {
