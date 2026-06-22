@@ -25,7 +25,6 @@
 html {
   -webkit-font-smoothing: antialiased;
   scroll-behavior: smooth;
-  overflow-x: hidden;
 }
 
 body {
@@ -35,7 +34,7 @@ body {
   color: var(--text);
   font-size: 1rem;
   line-height: 1.6;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 button, input {
