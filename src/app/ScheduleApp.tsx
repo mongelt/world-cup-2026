@@ -88,14 +88,14 @@ const FINAL_TOPOLOGY: [number, string, string, string, string, string][] = [
   [104, "W101", "W102", "NYC", "7/19", "3p"],
 ];
 
-const LEFT_R32  = [74, 77, 73, 75, 76, 78, 79, 80];
-const LEFT_R16  = [89, 90, 91, 92];
-const LEFT_QF   = [97, 99];
+const LEFT_R32  = [74, 77, 73, 75, 83, 84, 81, 82];
+const LEFT_R16  = [89, 90, 93, 94];
+const LEFT_QF   = [97, 98];
 const LEFT_SF   = [101];
 const RIGHT_SF  = [102];
-const RIGHT_QF  = [98, 100];
-const RIGHT_R16 = [93, 94, 95, 96];
-const RIGHT_R32 = [83, 84, 81, 82, 86, 88, 85, 87];
+const RIGHT_QF  = [99, 100];
+const RIGHT_R16 = [91, 92, 95, 96];
+const RIGHT_R32 = [76, 78, 79, 80, 86, 88, 85, 87];
 
 const ALL_TOPOLOGY = [...R32_TOPOLOGY, ...R16_TOPOLOGY, ...QF_TOPOLOGY, ...SF_TOPOLOGY, ...FINAL_TOPOLOGY];
 const TOPO_MAP = new Map(ALL_TOPOLOGY.map((r) => [r[0], r]));
